@@ -44,6 +44,12 @@
   color: var(--text-muted-2);
 }
 
+.worker-panel-threshold {
+  margin-top: 2px;
+  font-family: monospace;
+  color: var(--text-muted-3);
+}
+
 .worker-error {
   color: var(--danger);
   font-weight: 600;
@@ -102,6 +108,10 @@
   background: #f1c40f;
 }
 
+.dot-blue {
+  background: var(--primary);
+}
+
 .dot-red {
   background: #e74c3c;
 }
@@ -130,6 +140,16 @@
   text-overflow: ellipsis;
 }
 
+.worker-submeta {
+  margin-top: 2px;
+  font-size: 10px;
+  color: var(--text-muted-2);
+  font-family: monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .worker-status {
   font-size: 10px;
   font-weight: 700;
@@ -143,3 +163,7 @@
   opacity: 0.8;
 }
 
+.worker-row.busy {
+  border-color: var(--primary);
+  background: var(--primary-soft-bg);
+}

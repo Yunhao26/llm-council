@@ -195,6 +195,25 @@ function App() {
 
           case 'error':
             console.error('Stream error:', event.message);
+            setCurrentConversation((prev) => {
+              if (!prev || !Array.isArray(prev.messages) || prev.messages.length === 0) {
+                return prev;
+              }
+              const messages = [...prev.messages];
+              const lastMsg = messages[messages.length - 1];
+              if (lastMsg && lastMsg.role === 'assistant') {
+                const msgText = event?.message ? String(event.message) : 'Unknown error';
+                lastMsg.error = msgText;
+                if (!lastMsg.loading) {
+                  lastMsg.loading = { stage1: false, stage2: false, stage3: false };
+                } else {
+                  lastMsg.loading.stage1 = false;
+                  lastMsg.loading.stage2 = false;
+                  lastMsg.loading.stage3 = false;
+                }
+              }
+              return { ...prev, messages };
+            });
             setIsLoading(false);
             break;
 

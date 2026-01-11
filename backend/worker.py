@@ -37,6 +37,22 @@ OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
 
 app = FastAPI(title=f"LLM Council Worker ({WORKER_ROLE})")
 
+_ACTIVE_REQUESTS = 0
+
+
+def _inc_active_requests() -> None:
+    global _ACTIVE_REQUESTS
+    _ACTIVE_REQUESTS += 1
+
+
+def _dec_active_requests() -> None:
+    global _ACTIVE_REQUESTS
+    _ACTIVE_REQUESTS = max(0, _ACTIVE_REQUESTS - 1)
+
+
+def _get_active_requests() -> int:
+    return int(_ACTIVE_REQUESTS)
+
 
 @app.get("/")
 async def root():
@@ -46,6 +62,7 @@ async def root():
 @app.get("/api/health", response_model=HealthResponse)
 async def health():
     ok = await ollama_health(base_url=OLLAMA_BASE_URL)
+    active = _get_active_requests()
     return HealthResponse(
         status="ok",
         role=WORKER_ROLE,  # type: ignore[arg-type]
@@ -53,6 +70,8 @@ async def health():
         model=OLLAMA_MODEL,
         ollama_base_url=OLLAMA_BASE_URL,
         ollama_ok=ok,
+        active_requests=active,
+        busy=active > 0,
     )
 
 
@@ -61,21 +80,25 @@ async def chat(req: ChatRequest):
     if WORKER_ROLE != "council":
         raise HTTPException(status_code=403, detail="This worker is not allowed to serve /api/chat")
 
-    timeout_s = float(req.timeout_s or LLM_REQUEST_TIMEOUT_S)
-    content, latency_ms = await ollama_chat(
-        base_url=OLLAMA_BASE_URL,
-        model=OLLAMA_MODEL,
-        messages=[m.model_dump() for m in req.messages],
-        options=req.options,
-        timeout_s=timeout_s,
-    )
-    return ChatResponse(
-        content=content,
-        latency_ms=latency_ms,
-        worker_name=WORKER_NAME,
-        model=OLLAMA_MODEL,
-        role=WORKER_ROLE,  # type: ignore[arg-type]
-    )
+    _inc_active_requests()
+    try:
+        timeout_s = float(req.timeout_s or LLM_REQUEST_TIMEOUT_S)
+        content, latency_ms = await ollama_chat(
+            base_url=OLLAMA_BASE_URL,
+            model=OLLAMA_MODEL,
+            messages=[m.model_dump() for m in req.messages],
+            options=req.options,
+            timeout_s=timeout_s,
+        )
+        return ChatResponse(
+            content=content,
+            latency_ms=latency_ms,
+            worker_name=WORKER_NAME,
+            model=OLLAMA_MODEL,
+            role=WORKER_ROLE,  # type: ignore[arg-type]
+        )
+    finally:
+        _dec_active_requests()
 
 
 @app.post("/api/synthesize", response_model=SynthesizeResponse)
@@ -83,20 +106,22 @@ async def synthesize(req: SynthesizeRequest):
     if WORKER_ROLE != "chairman":
         raise HTTPException(status_code=403, detail="This worker is not allowed to serve /api/synthesize")
 
-    stage1_text = "\n\n".join(
-        [
-            f"Model: {r.get('model')}\nResponse: {r.get('response')}"
-            for r in req.stage1
-        ]
-    )
-    stage2_text = "\n\n".join(
-        [
-            f"Model: {r.get('model')}\nRanking: {r.get('ranking')}"
-            for r in req.stage2
-        ]
-    )
+    _inc_active_requests()
+    try:
+        stage1_text = "\n\n".join(
+            [
+                f"Model: {r.get('model')}\nResponse: {r.get('response')}"
+                for r in req.stage1
+            ]
+        )
+        stage2_text = "\n\n".join(
+            [
+                f"Model: {r.get('model')}\nRanking: {r.get('ranking')}"
+                for r in req.stage2
+            ]
+        )
 
-    chairman_prompt = f"""You are the Chairman of an LLM Council. Multiple AI models have provided responses to a user's question, and then ranked each other's responses.
+        chairman_prompt = f"""You are the Chairman of an LLM Council. Multiple AI models have provided responses to a user's question, and then ranked each other's responses.
 
 Original Question: {req.user_query}
 
@@ -113,19 +138,21 @@ Your task as Chairman is to synthesize all of this information into a single, co
 
 Provide a clear, well-reasoned final answer that represents the council's collective wisdom:"""
 
-    timeout_s = float(req.timeout_s or LLM_REQUEST_TIMEOUT_S)
-    content, latency_ms = await ollama_chat(
-        base_url=OLLAMA_BASE_URL,
-        model=OLLAMA_MODEL,
-        messages=[{"role": "user", "content": chairman_prompt}],
-        timeout_s=timeout_s,
-    )
+        timeout_s = float(req.timeout_s or LLM_REQUEST_TIMEOUT_S)
+        content, latency_ms = await ollama_chat(
+            base_url=OLLAMA_BASE_URL,
+            model=OLLAMA_MODEL,
+            messages=[{"role": "user", "content": chairman_prompt}],
+            timeout_s=timeout_s,
+        )
 
-    return SynthesizeResponse(
-        model=WORKER_NAME,
-        response=content,
-        latency_ms=latency_ms,
-    )
+        return SynthesizeResponse(
+            model=WORKER_NAME,
+            response=content,
+            latency_ms=latency_ms,
+        )
+    finally:
+        _dec_active_requests()
 
 
 if __name__ == "__main__":

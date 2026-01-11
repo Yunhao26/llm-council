@@ -100,27 +100,86 @@ export const api = {
       throw new Error('Failed to send message');
     }
 
+    if (!response.body) {
+      throw new Error('Streaming response body is not available');
+    }
+
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
+    let buffer = '';
+    let dataLines = [];
+
+    const safeOnEvent = (eventType, event) => {
+      try {
+        onEvent(eventType, event);
+      } catch (e) {
+        console.error('SSE onEvent callback threw:', e);
+      }
+    };
+
+    const flushEvent = () => {
+      if (dataLines.length === 0) return;
+      const dataText = dataLines.join('\n');
+      dataLines = [];
+      if (!dataText) return;
+
+      if (dataText === '[DONE]') {
+        safeOnEvent('done', { type: 'done' });
+        return;
+      }
+
+      try {
+        const event = JSON.parse(dataText);
+        const eventType =
+          event && typeof event === 'object' && typeof event.type === 'string'
+            ? event.type
+            : 'message';
+        safeOnEvent(eventType, event);
+      } catch (e) {
+        console.error('Failed to parse SSE event:', e);
+        console.error('Bad SSE payload:', dataText.slice(0, 2000));
+      }
+    };
+
+    const processLine = (rawLine) => {
+      let line = rawLine;
+      if (line.endsWith('\r')) line = line.slice(0, -1);
+
+      // Blank line => end of an SSE event
+      if (line === '') {
+        flushEvent();
+        return;
+      }
+
+      if (line.startsWith('data:')) {
+        dataLines.push(line.slice(5).trimStart());
+      }
+    };
+
+    const processBuffer = () => {
+      let idx;
+      while ((idx = buffer.indexOf('\n')) !== -1) {
+        const rawLine = buffer.slice(0, idx);
+        buffer = buffer.slice(idx + 1);
+        processLine(rawLine);
+      }
+    };
 
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
 
-      const chunk = decoder.decode(value);
-      const lines = chunk.split('\n');
-
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          const data = line.slice(6);
-          try {
-            const event = JSON.parse(data);
-            onEvent(event.type, event);
-          } catch (e) {
-            console.error('Failed to parse SSE event:', e);
-          }
-        }
-      }
+      buffer += decoder.decode(value, { stream: true });
+      processBuffer();
     }
+
+    // Flush any remaining decoder output + buffered data
+    buffer += decoder.decode();
+    processBuffer();
+    if (buffer.length > 0) {
+      processLine(buffer);
+      buffer = '';
+    }
+    flushEvent();
   },
 };

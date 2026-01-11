@@ -74,6 +74,17 @@
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stage1-color-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15);
+  flex: 0 0 8px;
 }
 
 .stage1-compare-select {
@@ -135,11 +146,25 @@
   font-weight: 600;
 }
 
+.stage1-tab {
+  border-top: 3px solid var(--model-accent, transparent);
+}
+
+.stage1-tab.active {
+  color: var(--model-accent, var(--primary));
+  border-color: var(--model-accent, var(--primary));
+  border-bottom-color: var(--surface);
+}
+
 .tab-content {
   background: var(--surface);
   padding: 16px;
   border-radius: 6px;
   border: 1px solid var(--border);
+}
+
+.stage1-tab-content {
+  border-left: 4px solid var(--model-accent, var(--border-2));
 }
 
 .model-name {
@@ -152,4 +177,97 @@
 .response-text {
   color: var(--text);
   line-height: 1.6;
+}
+
+/* Diff view (bonus) */
+.stage1-diff {
+  margin-top: 12px;
+}
+
+.stage1-diff-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.stage1-diff-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.stage1-diff-model {
+  font-family: monospace;
+  font-weight: 700;
+}
+
+.stage1-diff-stats {
+  font-size: 12px;
+  font-family: monospace;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.stage1-diff-warning {
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-4);
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.stage1-diff-code {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: auto;
+  max-height: 560px;
+  padding: 10px 0;
+  font-family: monospace;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.diff-line {
+  display: flex;
+  gap: 10px;
+  padding: 0 12px;
+  white-space: pre;
+}
+
+.diff-prefix {
+  flex: 0 0 auto;
+  width: 1.5ch;
+  color: var(--text-muted-3);
+  user-select: none;
+}
+
+.diff-content {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.diff-equal {
+  color: var(--text-muted-2);
+}
+
+.diff-add {
+  background: rgba(46, 204, 113, 0.14);
+  border-left: 3px solid rgba(46, 204, 113, 0.55);
+}
+
+.diff-del {
+  background: rgba(255, 107, 107, 0.14);
+  border-left: 3px solid rgba(255, 107, 107, 0.55);
+}
+
+.diff-skip {
+  background: var(--surface-3);
+  border-left: 3px solid var(--border-2);
+  color: var(--text-muted);
+  font-style: italic;
 }

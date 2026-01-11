@@ -41,8 +41,9 @@ LLM Council is a 3-stage deliberation system where multiple LLMs collaboratively
 **`storage.py`**
 - JSON-based conversation storage in `data/conversations/`
 - Each conversation: `{id, created_at, messages[]}`
-- Assistant messages contain: `{role, stage1, stage2, stage3}`
-- Note: metadata (label_to_model, aggregate_rankings) is NOT persisted to storage, only returned via API
+- Assistant messages contain: `{role, stage1, stage2, stage3, metadata?}`
+- Metadata (e.g. `label_to_model`, `aggregate_rankings`) IS persisted to the conversation JSON for assistant messages.
+- Backward compatible: older conversations missing metadata / parsed rankings are upgraded in-place on load and re-saved.
 
 **`main.py`**
 - FastAPI app with CORS enabled for localhost:5173 and localhost:3000
@@ -54,7 +55,7 @@ LLM Council is a 3-stage deliberation system where multiple LLMs collaboratively
 **`App.jsx`**
 - Main orchestration: manages conversations list and current conversation
 - Handles message sending and metadata storage
-- Important: metadata is stored in the UI state for display but not persisted to backend JSON
+- Important: metadata is stored in UI state for display AND is persisted to backend JSON via `storage.py`.
 
 **`components/ChatInterface.jsx`**
 - Multiline textarea (3 rows, resizable)
@@ -77,7 +78,7 @@ LLM Council is a 3-stage deliberation system where multiple LLMs collaboratively
 - Green-tinted background (#f0fff0) to highlight conclusion
 
 **Styling (`*.css`)**
-- Light mode theme (not dark mode)
+- Light + dark mode themes (toggle stored in localStorage)
 - Primary color: #4a90e2 (blue)
 - Global markdown styling in `index.css` with `.markdown-content` class
 - 12px padding on all markdown content to prevent cluttered appearance
@@ -97,7 +98,7 @@ This strict format allows reliable parsing while still getting thoughtful evalua
 
 ### De-anonymization Strategy
 - Models receive: "Response A", "Response B", etc.
-- Backend creates mapping: `{"Response A": "openai/gpt-5.1", ...}`
+- Backend creates mapping from labels to council worker display names from `council_config.json` (e.g. `{"Response A": "Council-A (...)", ...}`)
 - Frontend displays model names in **bold** for readability
 - Users see explanation that original evaluation used anonymous labels
 - This prevents bias while maintaining transparency
@@ -134,12 +135,12 @@ Each machine chooses its own local model via env `OLLAMA_MODEL`. The orchestrato
 1. **Module Import Errors**: Always run backend as `python -m backend.main` from project root, not from backend directory
 2. **CORS Issues**: Frontend must match allowed origins in `main.py` CORS middleware
 3. **Ranking Parse Failures**: If models don't follow format, fallback regex extracts any "Response X" patterns in order
-4. **Missing Metadata**: Metadata is ephemeral (not persisted), only available in API responses
+4. **Older Conversations Missing Metadata**: older JSON may lack metadata; `storage.py` upgrades on load and persists it.
 
 ## Future Enhancement Ideas
 
 - Configurable council/chairman via UI instead of config file
-- Streaming responses instead of batch loading
+- Token-level streaming (Ollama stream=true) instead of stage-level SSE events
 - Export conversations to markdown/PDF
 - Model performance analytics over time
 - Custom ranking criteria (not just accuracy/insight)

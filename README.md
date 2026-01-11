@@ -19,10 +19,22 @@ Workflow:
   - `frontend/` (Vite dev server, port 5173)
 - **PC3 (Council‑2)**: `backend/worker.py` (`WORKER_ROLE=council`) + local Ollama
 
+### Live demo roles (example assignment for this team)
+
+- **PC2 / Presenter — Yunhao ZHOU**:
+  - Runs **Council‑1 worker + Orchestrator + Frontend**
+  - Presents the UI + explains Stage 1–3 and shows health checks
+- **PC3 / Council‑2 operator — Yesmine BETTAIEB**:
+  - Runs **Council‑2 worker**
+  - Confirms worker is reachable on LAN (health endpoint)
+- **PC1 / Chairman operator — Sébastien LEVESQUE**:
+  - Runs **Chairman worker**
+  - Confirms Chairman is reachable on LAN (health endpoint)
+
 **Suggested model assignment (3 PCs / 3 models):**
 
-- **PC2 Council‑1**: `qwen2.5:7b`
-- **PC3 Council‑2**: `mistral:7b`
+- **PC2 Council‑1**: `mistral:7b` (already installed on the presenter PC)
+- **PC3 Council‑2**: `qwen2.5:7b`
 - **PC1 Chairman**: `llama3.1:8b`
 
 **Recommended ports:**
@@ -69,7 +81,7 @@ Copy and edit:
 
 - Copy `council_config.example.json` → `council_config.json`
 - Replace the IP/port values with your real LAN addresses (PC2/PC3 run council workers; PC1 runs the chairman worker)
-- **Tip**: `name` is displayed in the frontend tabs. Put the model name in it (example: `Council‑1 qwen2.5:7b (PC2)`).
+- **Tip**: `name` is displayed in the frontend tabs. Put the model name in it (example: `Council‑1 mistral:7b (PC2)`).
 
 The Orchestrator reads `council_config.json` by default (override with `COUNCIL_CONFIG_PATH`).
 
@@ -107,7 +119,7 @@ Council Worker:
 ```powershell
 $env:WORKER_ROLE="council"
 $env:WORKER_NAME="Council-1 (PC2)"
-$env:OLLAMA_MODEL="qwen2.5:7b"
+$env:OLLAMA_MODEL="mistral:7b"
 $env:WORKER_PORT="8002"
 uv run python -m backend.worker
 ```
@@ -132,7 +144,7 @@ npm run dev
 ```powershell
 $env:WORKER_ROLE="council"
 $env:WORKER_NAME="Council-2 (PC3)"
-$env:OLLAMA_MODEL="mistral:7b"
+$env:OLLAMA_MODEL="qwen2.5:7b"
 $env:WORKER_PORT="8002"
 uv run python -m backend.worker
 ```
@@ -176,12 +188,17 @@ netsh advfirewall firewall add rule name="LLM-Council ChairmanWorker 8003" dir=i
 
 ## Deliverables template (fill in for your submission)
 
-- **Group members / TD group**: `TODO`
-- **Chosen local models**: `TODO`
-- **Key design decisions**: `TODO`
+- **Group members / TD group**: `CDOF3` — Yunhao ZHOU, Yesmine BETTAIEB, Sébastien LEVESQUE
+- **Chosen local models**: `mistral:7b` (Council‑1), `qwen2.5:7b` (Council‑2), `llama3.1:8b` (Chairman)
+- **Key design decisions**:
+  - Use **Ollama (local REST)** for all inference; no cloud keys or OpenRouter/OpenAI dependencies.
+  - Use **worker services** per machine (REST) and a central **Orchestrator** that fans out calls in parallel (async).
+  - Enforce **Chairman separation** with `WORKER_ROLE` (chairman exposes `/api/synthesize` only).
+  - Stage 2 anonymization: label responses as **Response A/B/...**; robust ranking parsing + sanitization.
+  - UX/observability: stage-level **SSE streaming**, worker health dashboard (incl. busy/in-flight), latency + token estimates, compare + diff.
 - **Generative AI Usage Statement**:
-  - Tools/models used: `TODO`
-  - Purpose (refactor, docs, debugging, etc.): `TODO`
+  - Tools/models used: Cursor — GPT‑5.2 Extra High Fast Model
+  - Purpose: code review, debugging, UI/UX improvements, and documentation updates (transparent assistance)
 
 ## Tech Stack
 

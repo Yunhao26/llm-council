@@ -1,0 +1,131 @@
+.stage-stepper {
+  margin: 10px 0 14px 0;
+}
+
+.stage-stepper-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-3);
+}
+
+.stepper-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.stepper-circle {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-family: monospace;
+  font-size: 12px;
+  font-weight: 800;
+  background: var(--surface);
+  border: 2px solid var(--border-2);
+  color: var(--text-muted);
+  flex: 0 0 26px;
+}
+
+.stepper-text {
+  min-width: 0;
+}
+
+.stepper-title {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.stepper-state {
+  margin-top: 1px;
+  font-size: 11px;
+  font-family: monospace;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.stepper-connector {
+  height: 2px;
+  background: var(--border);
+  flex: 1 1 auto;
+  min-width: 18px;
+  border-radius: 999px;
+  opacity: 0.9;
+}
+
+/* State colors */
+.stepper-step.done .stepper-circle {
+  background: rgba(46, 204, 113, 0.16);
+  border-color: rgba(46, 204, 113, 0.55);
+  color: rgba(46, 204, 113, 0.95);
+}
+
+.stepper-step.running .stepper-circle {
+  background: var(--primary-soft-bg);
+  border-color: var(--primary);
+  color: var(--primary);
+  box-shadow: 0 0 0 4px var(--focus-ring);
+}
+
+.stepper-step.error .stepper-circle {
+  background: rgba(255, 107, 107, 0.12);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.stepper-step.running .stepper-state {
+  color: var(--primary);
+}
+
+.stepper-step.done .stepper-state {
+  color: rgba(46, 204, 113, 0.95);
+}
+
+.stepper-step.error .stepper-state {
+  color: var(--danger);
+}
+
+.stepper-connector.done {
+  background: rgba(46, 204, 113, 0.55);
+}
+
+.stepper-connector.running {
+  background: rgba(74, 144, 226, 0.6);
+}
+
+.stepper-connector.error {
+  background: rgba(255, 107, 107, 0.7);
+}
+
+.stage-stepper-error {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 107, 107, 0.5);
+  background: rgba(255, 107, 107, 0.08);
+  color: var(--danger);
+  font-size: 12px;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+@media (max-width: 900px) {
+  .stage-stepper-row {
+    gap: 8px;
+  }
+
+  .stepper-title,
+  .stepper-state {
+    font-size: 11px;
+  }
+}
+

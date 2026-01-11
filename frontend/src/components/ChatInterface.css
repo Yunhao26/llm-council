@@ -248,6 +248,15 @@
   border-color: var(--stage3-accent-border);
 }
 
+.stage-summary.performance {
+  background: var(--primary-soft-bg);
+  border-color: var(--border);
+}
+
+.stage-collapsible.performance[open] .stage-summary {
+  border-color: var(--border);
+}
+
 /* Usage panel (estimated tokens) */
 .usage-panel {
   background: var(--surface);

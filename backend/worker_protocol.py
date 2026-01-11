@@ -46,4 +46,7 @@ class HealthResponse(BaseModel):
     model: str
     ollama_base_url: str
     ollama_ok: bool
+    # Bonus: load/availability indicator (best-effort; used by UI as idle/busy)
+    active_requests: int = 0
+    busy: bool = False
 
