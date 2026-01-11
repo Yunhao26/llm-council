@@ -11,26 +11,30 @@ LLM Council is a 3-stage deliberation system where multiple LLMs collaboratively
 ### Backend Structure (`backend/`)
 
 **`config.py`**
-- Contains `COUNCIL_MODELS` (list of OpenRouter model identifiers)
-- Contains `CHAIRMAN_MODEL` (model that synthesizes final answer)
-- Uses environment variable `OPENROUTER_API_KEY` from `.env`
+- Orchestrator reads `council_config.json` (distributed topology) via `COUNCIL_CONFIG_PATH`
+- Defines timeouts and CORS settings
 - Backend runs on **port 8001** (NOT 8000 - user had another app on 8000)
 
-**`openrouter.py`**
-- `query_model()`: Single async model query
-- `query_models_parallel()`: Parallel queries using `asyncio.gather()`
-- Returns dict with 'content' and optional 'reasoning_details'
-- Graceful degradation: returns None on failure, continues with successful responses
+**`worker.py`**
+- Worker service that runs on each machine next to a local LLM (recommended: Ollama)
+- `WORKER_ROLE=council` serves `/api/chat` (Stage 1 & 2)
+- `WORKER_ROLE=chairman` serves `/api/synthesize` (Stage 3 only, enforced)
+
+**`worker_client.py`**
+- Orchestrator-side HTTP client calling worker services in parallel (asyncio.gather)
+
+**`ollama.py`**
+- Minimal REST client calling local Ollama `/api/chat`
 
 **`council.py`** - The Core Logic
-- `stage1_collect_responses()`: Parallel queries to all council models
+- `stage1_collect_responses()`: Parallel queries to all council workers
 - `stage2_collect_rankings()`:
   - Anonymizes responses as "Response A, B, C, etc."
   - Creates `label_to_model` mapping for de-anonymization
   - Prompts models to evaluate and rank (with strict format requirements)
   - Returns tuple: (rankings_list, label_to_model_dict)
   - Each ranking includes both raw text and `parsed_ranking` list
-- `stage3_synthesize_final()`: Chairman synthesizes from all responses + rankings
+- `stage3_synthesize_final()`: Calls chairman worker `/api/synthesize` (separate service)
 - `parse_ranking_from_text()`: Extracts "FINAL RANKING:" section, handles both numbered lists and plain format
 - `calculate_aggregate_rankings()`: Computes average rank position across all peer evaluations
 
@@ -123,7 +127,7 @@ All backend modules use relative imports (e.g., `from .config import ...`) not a
 All ReactMarkdown components must be wrapped in `<div className="markdown-content">` for proper spacing. This class is defined globally in `index.css`.
 
 ### Model Configuration
-Models are hardcoded in `backend/config.py`. Chairman can be same or different from council members. The current default is Gemini as chairman per user preference.
+Each machine chooses its own local model via env `OLLAMA_MODEL`. The orchestrator only knows worker URLs + display names from `council_config.json`.
 
 ## Common Gotchas
 
@@ -143,7 +147,7 @@ Models are hardcoded in `backend/config.py`. Chairman can be same or different f
 
 ## Testing Notes
 
-Use `test_openrouter.py` to verify API connectivity and test different model identifiers before adding to council. The script tests both streaming and non-streaming modes.
+Use `GET /api/workers/health` on the orchestrator to verify worker reachability and Ollama status.
 
 ## Data Flow Summary
 

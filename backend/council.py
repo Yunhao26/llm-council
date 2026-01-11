@@ -1,8 +1,46 @@
 """3-stage LLM Council orchestration."""
 
 from typing import List, Dict, Any, Tuple
-from .openrouter import query_models_parallel, query_model
-from .config import COUNCIL_MODELS, CHAIRMAN_MODEL
+from .config import LLM_REQUEST_TIMEOUT_S, TITLE_REQUEST_TIMEOUT_S
+from .council_config import load_council_topology
+from .worker_client import query_workers_parallel_full, worker_chat, worker_synthesize_full
+
+
+def _get_council_workers() -> List[Dict[str, str]]:
+    topo = load_council_topology()
+    return [{"name": w.name, "base_url": w.base_url} for w in topo.council]
+
+
+def _get_chairman() -> Dict[str, str]:
+    topo = load_council_topology()
+    return {"name": topo.chairman.name, "base_url": topo.chairman.base_url}
+
+
+def _sanitize_parsed_ranking(parsed: List[str], valid_labels: List[str]) -> List[str]:
+    """Sanitize a parsed ranking to match the known set of labels.
+
+    Some models may hallucinate extra labels (e.g. "Response C" when only A/B exist)
+    or omit labels. This function:
+    - filters out unknown labels
+    - removes duplicates (keeps first occurrence)
+    - appends any missing labels in the original valid_labels order
+    """
+
+    valid_set = set(valid_labels)
+    seen = set()
+    cleaned: List[str] = []
+
+    for label in parsed:
+        if label in valid_set and label not in seen:
+            cleaned.append(label)
+            seen.add(label)
+
+    for label in valid_labels:
+        if label not in seen:
+            cleaned.append(label)
+            seen.add(label)
+
+    return cleaned
 
 
 async def stage1_collect_responses(user_query: str) -> List[Dict[str, Any]]:
@@ -17,18 +55,25 @@ async def stage1_collect_responses(user_query: str) -> List[Dict[str, Any]]:
     """
     messages = [{"role": "user", "content": user_query}]
 
-    # Query all models in parallel
-    responses = await query_models_parallel(COUNCIL_MODELS, messages)
+    council_workers = _get_council_workers()
+    responses = await query_workers_parallel_full(
+        workers=council_workers,
+        messages=messages,
+        timeout_s=LLM_REQUEST_TIMEOUT_S,
+    )
 
-    # Format results
-    stage1_results = []
-    for model, response in responses.items():
-        if response is not None:  # Only include successful responses
-            stage1_results.append({
-                "model": model,
-                "response": response.get('content', '')
-            })
-
+    stage1_results: List[Dict[str, Any]] = []
+    for w in council_workers:
+        resp = responses.get(w["name"])
+        if resp is not None:
+            stage1_results.append(
+                {
+                    "model": w["name"],
+                    "response": resp.content,
+                    "latency_ms": resp.latency_ms,
+                    "ollama_model": resp.model,
+                }
+            )
     return stage1_results
 
 
@@ -61,6 +106,13 @@ async def stage2_collect_rankings(
         for label, result in zip(labels, stage1_results)
     ])
 
+    valid_response_labels = [f"Response {label}" for label in labels]
+    valid_response_labels_text = ", ".join(valid_response_labels)
+    example_evals = "\n".join([f"Response {label} ... (your critique here)" for label in labels])
+    example_ranking_lines = "\n".join(
+        [f"{i}. Response {label}" for i, label in enumerate(labels, start=1)]
+    )
+
     ranking_prompt = f"""You are evaluating different responses to the following question:
 
 Question: {user_query}
@@ -68,6 +120,8 @@ Question: {user_query}
 Here are the responses from different models (anonymized):
 
 {responses_text}
+
+There are exactly {len(labels)} responses: {valid_response_labels_text}
 
 Your task:
 1. First, evaluate each response individually. For each response, explain what it does well and what it does poorly.
@@ -78,36 +132,44 @@ IMPORTANT: Your final ranking MUST be formatted EXACTLY as follows:
 - Then list the responses from best to worst as a numbered list
 - Each line should be: number, period, space, then ONLY the response label (e.g., "1. Response A")
 - Do not add any other text or explanations in the ranking section
+- Do NOT invent any additional responses. Only rank the responses listed above.
 
 Example of the correct format for your ENTIRE response:
 
-Response A provides good detail on X but misses Y...
-Response B is accurate but lacks depth on Z...
-Response C offers the most comprehensive answer...
+{example_evals}
 
 FINAL RANKING:
-1. Response C
-2. Response A
-3. Response B
+{example_ranking_lines}
 
 Now provide your evaluation and ranking:"""
 
     messages = [{"role": "user", "content": ranking_prompt}]
 
-    # Get rankings from all council models in parallel
-    responses = await query_models_parallel(COUNCIL_MODELS, messages)
+    council_workers = _get_council_workers()
+    responses = await query_workers_parallel_full(
+        workers=council_workers,
+        messages=messages,
+        timeout_s=LLM_REQUEST_TIMEOUT_S,
+    )
 
-    # Format results
-    stage2_results = []
-    for model, response in responses.items():
-        if response is not None:
-            full_text = response.get('content', '')
-            parsed = parse_ranking_from_text(full_text)
-            stage2_results.append({
-                "model": model,
-                "ranking": full_text,
-                "parsed_ranking": parsed
-            })
+    stage2_results: List[Dict[str, Any]] = []
+    for w in council_workers:
+        resp = responses.get(w["name"])
+        if resp is not None:
+            content = resp.content
+            parsed = _sanitize_parsed_ranking(
+                parse_ranking_from_text(content),
+                valid_labels=valid_response_labels,
+            )
+            stage2_results.append(
+                {
+                    "model": w["name"],
+                    "ranking": content,
+                    "parsed_ranking": parsed,
+                    "latency_ms": resp.latency_ms,
+                    "ollama_model": resp.model,
+                }
+            )
 
     return stage2_results, label_to_model
 
@@ -128,50 +190,24 @@ async def stage3_synthesize_final(
     Returns:
         Dict with 'model' and 'response' keys
     """
-    # Build comprehensive context for chairman
-    stage1_text = "\n\n".join([
-        f"Model: {result['model']}\nResponse: {result['response']}"
-        for result in stage1_results
-    ])
+    chairman = _get_chairman()
 
-    stage2_text = "\n\n".join([
-        f"Model: {result['model']}\nRanking: {result['ranking']}"
-        for result in stage2_results
-    ])
+    # Call the chairman worker (separate service) to enforce "synthesis only"
+    synth = await worker_synthesize_full(
+        chairman_base_url=chairman["base_url"],
+        user_query=user_query,
+        stage1=stage1_results,
+        stage2=stage2_results,
+        timeout_s=LLM_REQUEST_TIMEOUT_S,
+    )
 
-    chairman_prompt = f"""You are the Chairman of an LLM Council. Multiple AI models have provided responses to a user's question, and then ranked each other's responses.
-
-Original Question: {user_query}
-
-STAGE 1 - Individual Responses:
-{stage1_text}
-
-STAGE 2 - Peer Rankings:
-{stage2_text}
-
-Your task as Chairman is to synthesize all of this information into a single, comprehensive, accurate answer to the user's original question. Consider:
-- The individual responses and their insights
-- The peer rankings and what they reveal about response quality
-- Any patterns of agreement or disagreement
-
-Provide a clear, well-reasoned final answer that represents the council's collective wisdom:"""
-
-    messages = [{"role": "user", "content": chairman_prompt}]
-
-    # Query the chairman model
-    response = await query_model(CHAIRMAN_MODEL, messages)
-
-    if response is None:
-        # Fallback if chairman fails
+    if synth is None:
         return {
-            "model": CHAIRMAN_MODEL,
-            "response": "Error: Unable to generate final synthesis."
+            "model": chairman["name"],
+            "response": "Error: Unable to generate final synthesis (chairman worker unreachable).",
         }
 
-    return {
-        "model": CHAIRMAN_MODEL,
-        "response": response.get('content', '')
-    }
+    return {"model": chairman["name"], "response": synth.response, "latency_ms": synth.latency_ms}
 
 
 def parse_ranking_from_text(ranking_text: str) -> List[str]:
@@ -226,12 +262,15 @@ def calculate_aggregate_rankings(
 
     # Track positions for each model
     model_positions = defaultdict(list)
+    valid_labels = list(label_to_model.keys())
 
     for ranking in stage2_results:
-        ranking_text = ranking['ranking']
+        parsed_ranking = ranking.get("parsed_ranking")
+        if not isinstance(parsed_ranking, list) or not parsed_ranking:
+            ranking_text = ranking.get("ranking", "")
+            parsed_ranking = parse_ranking_from_text(str(ranking_text))
 
-        # Parse the ranking from the structured format
-        parsed_ranking = parse_ranking_from_text(ranking_text)
+        parsed_ranking = _sanitize_parsed_ranking(parsed_ranking, valid_labels=valid_labels)
 
         for position, label in enumerate(parsed_ranking, start=1):
             if label in label_to_model:
@@ -272,16 +311,27 @@ Question: {user_query}
 
 Title:"""
 
-    messages = [{"role": "user", "content": title_prompt}]
+    topo = load_council_topology()
+    council_workers = _get_council_workers()
 
-    # Use gemini-2.5-flash for title generation (fast and cheap)
-    response = await query_model("google/gemini-2.5-flash", messages, timeout=30.0)
-
-    if response is None:
-        # Fallback to a generic title
+    # Pick a council worker to generate titles (NOT the chairman)
+    title_worker_name = topo.title_generator or (council_workers[0]["name"] if council_workers else None)
+    title_worker = next((w for w in council_workers if w["name"] == title_worker_name), None) or (
+        council_workers[0] if council_workers else None
+    )
+    if not title_worker:
         return "New Conversation"
 
-    title = response.get('content', 'New Conversation').strip()
+    messages = [{"role": "user", "content": title_prompt}]
+    content = await worker_chat(
+        worker_base_url=title_worker["base_url"],
+        messages=messages,
+        timeout_s=TITLE_REQUEST_TIMEOUT_S,
+    )
+    if content is None:
+        return "New Conversation"
+
+    title = content.strip()
 
     # Clean up the title - remove quotes, limit length
     title = title.strip('"\'')

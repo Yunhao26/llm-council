@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
+import { estimateTokens, formatTokenCount } from '../utils/tokenEstimate';
 import './Stage2.css';
 
 function deAnonymizeText(text, labelToModel) {
@@ -14,16 +15,27 @@ function deAnonymizeText(text, labelToModel) {
   return result;
 }
 
-export default function Stage2({ rankings, labelToModel, aggregateRankings }) {
+function formatLatencyMs(ms) {
+  const n = Number(ms);
+  if (!Number.isFinite(n)) return null;
+  return `${Math.round(n)} ms`;
+}
+
+export default function Stage2({ rankings, labelToModel, aggregateRankings, showTitle = true }) {
   const [activeTab, setActiveTab] = useState(0);
 
   if (!rankings || rankings.length === 0) {
     return null;
   }
 
+  const active = rankings[activeTab] || {};
+  const latency = formatLatencyMs(active.latency_ms);
+  const tokens = estimateTokens(active.ranking);
+  const tokensText = `~${formatTokenCount(tokens)} tok`;
+
   return (
     <div className="stage stage2">
-      <h3 className="stage-title">Stage 2: Peer Rankings</h3>
+      {showTitle && <h3 className="stage-title">Stage 2: Peer Rankings</h3>}
 
       <h4>Raw Evaluations</h4>
       <p className="stage-description">
@@ -45,20 +57,23 @@ export default function Stage2({ rankings, labelToModel, aggregateRankings }) {
 
       <div className="tab-content">
         <div className="ranking-model">
-          {rankings[activeTab].model}
+          <div>{active.model}</div>
+          {active.ollama_model && <div>Ollama: {active.ollama_model}</div>}
+          {latency && <div>Latency: {latency}</div>}
+          <div>Est. tokens: {tokensText}</div>
         </div>
         <div className="ranking-content markdown-content">
           <ReactMarkdown>
-            {deAnonymizeText(rankings[activeTab].ranking, labelToModel)}
+            {deAnonymizeText(active.ranking, labelToModel)}
           </ReactMarkdown>
         </div>
 
-        {rankings[activeTab].parsed_ranking &&
-         rankings[activeTab].parsed_ranking.length > 0 && (
+        {active.parsed_ranking &&
+         active.parsed_ranking.length > 0 && (
           <div className="parsed-ranking">
             <strong>Extracted Ranking:</strong>
             <ol>
-              {rankings[activeTab].parsed_ranking.map((label, i) => (
+              {active.parsed_ranking.map((label, i) => (
                 <li key={i}>
                   {labelToModel && labelToModel[label]
                     ? labelToModel[label].split('/')[1] || labelToModel[label]

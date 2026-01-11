@@ -1,0 +1,9 @@
+{
+  "council": [
+    { "name": "Council-1 qwen2.5:7b (PC2)", "url": "http://192.168.0.12:8002" },
+    { "name": "Council-2 mistral:7b (PC3)", "url": "http://192.168.0.13:8002" }
+  ],
+  "chairman": { "name": "Chairman llama3.1:8b (PC1)", "url": "http://192.168.0.11:8003" },
+  "title_generator": "Council-1 qwen2.5:7b (PC2)"
+}
+

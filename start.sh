@@ -4,6 +4,9 @@
 
 echo "Starting LLM Council..."
 echo ""
+echo "NOTE: This script starts ONLY the Orchestrator (8001) + Frontend (5173)."
+echo "Make sure your Council/Chairman worker services are already running."
+echo ""
 
 # Start backend
 echo "Starting backend on http://localhost:8001..."

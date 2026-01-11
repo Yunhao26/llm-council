@@ -1,7 +1,7 @@
 .sidebar {
   width: 260px;
-  background: #f8f8f8;
-  border-right: 1px solid #e0e0e0;
+  background: var(--surface-2);
+  border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   height: 100vh;
@@ -9,20 +9,45 @@
 
 .sidebar-header {
   padding: 16px;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid var(--border);
+}
+
+.sidebar-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
 }
 
 .sidebar-header h1 {
   font-size: 18px;
-  margin: 0 0 12px 0;
-  color: #333;
+  margin: 0;
+  color: var(--text);
+}
+
+.theme-toggle-btn {
+  padding: 6px 10px;
+  font-size: 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border-2);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.theme-toggle-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
 }
 
 .new-conversation-btn {
   width: 100%;
   padding: 10px;
-  background: #4a90e2;
-  border: 1px solid #4a90e2;
+  background: var(--primary);
+  border: 1px solid var(--primary);
   border-radius: 6px;
   color: #fff;
   cursor: pointer;
@@ -32,8 +57,8 @@
 }
 
 .new-conversation-btn:hover {
-  background: #357abd;
-  border-color: #357abd;
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
 }
 
 .conversation-list {
@@ -45,7 +70,7 @@
 .no-conversations {
   padding: 16px;
   text-align: center;
-  color: #999;
+  color: var(--text-muted-3);
   font-size: 14px;
 }
 
@@ -58,21 +83,21 @@
 }
 
 .conversation-item:hover {
-  background: #f0f0f0;
+  background: var(--surface-3);
 }
 
 .conversation-item.active {
-  background: #e8f0fe;
-  border: 1px solid #4a90e2;
+  background: var(--primary-soft-bg);
+  border: 1px solid var(--primary);
 }
 
 .conversation-title {
-  color: #333;
+  color: var(--text);
   font-size: 14px;
   margin-bottom: 4px;
 }
 
 .conversation-meta {
-  color: #999;
+  color: var(--text-muted-3);
   font-size: 12px;
 }

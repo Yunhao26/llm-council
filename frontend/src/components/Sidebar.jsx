@@ -1,20 +1,37 @@
-import { useState, useEffect } from 'react';
 import './Sidebar.css';
+import WorkerStatusPanel from './WorkerStatusPanel';
 
 export default function Sidebar({
   conversations,
   currentConversationId,
   onSelectConversation,
   onNewConversation,
+  theme,
+  onToggleTheme,
 }) {
+  const themeLabel = theme === 'dark' ? 'Light mode' : 'Dark mode';
+
   return (
     <div className="sidebar">
       <div className="sidebar-header">
-        <h1>LLM Council</h1>
+        <div className="sidebar-title-row">
+          <h1>LLM Council</h1>
+          <button
+            type="button"
+            className="theme-toggle-btn"
+            onClick={onToggleTheme}
+            title={themeLabel}
+            aria-label={themeLabel}
+          >
+            {themeLabel}
+          </button>
+        </div>
         <button className="new-conversation-btn" onClick={onNewConversation}>
           + New Conversation
         </button>
       </div>
+
+      <WorkerStatusPanel />
 
       <div className="conversation-list">
         {conversations.length === 0 ? (

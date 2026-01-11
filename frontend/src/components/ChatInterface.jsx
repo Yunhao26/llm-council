@@ -3,7 +3,14 @@ import ReactMarkdown from 'react-markdown';
 import Stage1 from './Stage1';
 import Stage2 from './Stage2';
 import Stage3 from './Stage3';
+import { estimateTokens, formatTokenCount } from '../utils/tokenEstimate';
 import './ChatInterface.css';
+
+function getStageStatus({ loading, hasData }) {
+  if (loading) return 'running…';
+  if (hasData) return 'done';
+  return 'not started';
+}
 
 export default function ChatInterface({
   conversation,
@@ -12,6 +19,7 @@ export default function ChatInterface({
 }) {
   const [input, setInput] = useState('');
   const messagesEndRef = useRef(null);
+  const [panelOpen, setPanelOpen] = useState({});
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -20,6 +28,11 @@ export default function ChatInterface({
   useEffect(() => {
     scrollToBottom();
   }, [conversation]);
+
+  // Reset per-stage panel state when switching conversations
+  useEffect(() => {
+    setPanelOpen({});
+  }, [conversation?.id]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -48,6 +61,44 @@ export default function ChatInterface({
     );
   }
 
+  const getPanelKey = (messageIndex, stage) => `${conversation.id}:${messageIndex}:${stage}`;
+
+  const renderStagePanel = ({
+    messageIndex,
+    stage,
+    title,
+    defaultOpen = false,
+    loading,
+    hasData,
+    metaExtra,
+    summaryClassName = '',
+    children,
+  }) => {
+    const key = getPanelKey(messageIndex, stage);
+    const open = typeof panelOpen[key] === 'boolean' ? panelOpen[key] : defaultOpen;
+    const status = getStageStatus({ loading, hasData });
+    const meta = metaExtra ? `${status} • ${metaExtra}` : status;
+
+    return (
+      <details
+        className={`stage-collapsible ${summaryClassName}`.trim()}
+        open={open}
+        onToggle={(e) => {
+          const isOpen = e.currentTarget.open;
+          setPanelOpen((prev) => ({ ...prev, [key]: isOpen }));
+        }}
+      >
+        <summary className={`stage-summary ${summaryClassName}`.trim()}>
+          <span className="stage-summary-title">{title}</span>
+          <span className="stage-summary-meta">{meta}</span>
+        </summary>
+        <div className="stage-collapsible-body">
+          {children}
+        </div>
+      </details>
+    );
+  };
+
   return (
     <div className="chat-interface">
       <div className="messages-container">
@@ -69,42 +120,204 @@ export default function ChatInterface({
                   </div>
                 </div>
               ) : (
-                <div className="assistant-message">
-                  <div className="message-label">LLM Council</div>
+                (() => {
+                  const fmt = (n) => `~${formatTokenCount(n)} tok`;
 
-                  {/* Stage 1 */}
-                  {msg.loading?.stage1 && (
-                    <div className="stage-loading">
-                      <div className="spinner"></div>
-                      <span>Running Stage 1: Collecting individual responses...</span>
-                    </div>
-                  )}
-                  {msg.stage1 && <Stage1 responses={msg.stage1} />}
+                  const prev = conversation.messages[index - 1];
+                  const userText = prev && prev.role === 'user' ? prev.content : '';
+                  const userTokens = estimateTokens(userText);
 
-                  {/* Stage 2 */}
-                  {msg.loading?.stage2 && (
-                    <div className="stage-loading">
-                      <div className="spinner"></div>
-                      <span>Running Stage 2: Peer rankings...</span>
-                    </div>
-                  )}
-                  {msg.stage2 && (
-                    <Stage2
-                      rankings={msg.stage2}
-                      labelToModel={msg.metadata?.label_to_model}
-                      aggregateRankings={msg.metadata?.aggregate_rankings}
-                    />
-                  )}
+                  const stage1 = Array.isArray(msg.stage1) ? msg.stage1 : [];
+                  const stage2 = Array.isArray(msg.stage2) ? msg.stage2 : [];
+                  const stage3Text = msg.stage3?.response;
 
-                  {/* Stage 3 */}
-                  {msg.loading?.stage3 && (
-                    <div className="stage-loading">
-                      <div className="spinner"></div>
-                      <span>Running Stage 3: Final synthesis...</span>
+                  const stage1ByModel = stage1
+                    .map((r) => ({
+                      model: r?.model || 'Unknown',
+                      tokens: estimateTokens(r?.response),
+                    }))
+                    .sort((a, b) => b.tokens - a.tokens);
+                  const stage1Tokens = stage1ByModel.reduce((sum, x) => sum + x.tokens, 0);
+
+                  const stage2ByModel = stage2
+                    .map((r) => ({
+                      model: r?.model || 'Unknown',
+                      tokens: estimateTokens(r?.ranking),
+                    }))
+                    .sort((a, b) => b.tokens - a.tokens);
+                  const stage2Tokens = stage2ByModel.reduce((sum, x) => sum + x.tokens, 0);
+
+                  const stage3Tokens = estimateTokens(stage3Text);
+
+                  const totalTokens = userTokens + stage1Tokens + stage2Tokens + stage3Tokens;
+
+                  const stage1Meta =
+                    stage1.length > 0 ? `${stage1.length} responses • ${fmt(stage1Tokens)}` : null;
+                  const stage2Meta =
+                    stage2.length > 0 ? `${stage2.length} reviews • ${fmt(stage2Tokens)}` : null;
+
+                  const stage3MetaParts = [];
+                  if (msg.stage3?.latency_ms != null) {
+                    const n = Number(msg.stage3.latency_ms);
+                    if (Number.isFinite(n)) stage3MetaParts.push(`latency ${Math.round(n)} ms`);
+                  }
+                  if (msg.stage3?.response != null) {
+                    stage3MetaParts.push(fmt(stage3Tokens));
+                  }
+                  const stage3Meta = stage3MetaParts.length > 0 ? stage3MetaParts.join(' • ') : null;
+
+                  const anyLoading = Boolean(msg.loading?.stage1 || msg.loading?.stage2 || msg.loading?.stage3);
+                  const anyData = Boolean(userText || stage1.length || stage2.length || msg.stage3);
+
+                  return (
+                    <div className="assistant-message">
+                      <div className="message-label">LLM Council</div>
+
+                      {renderStagePanel({
+                        messageIndex: index,
+                        stage: 'stage1',
+                        title: 'Stage 1: Individual Responses',
+                        defaultOpen: false,
+                        loading: Boolean(msg.loading?.stage1),
+                        hasData: stage1.length > 0,
+                        metaExtra: stage1Meta,
+                        summaryClassName: 'stage1',
+                        children: (
+                          <>
+                            {msg.loading?.stage1 && (
+                              <div className="stage-loading">
+                                <div className="spinner"></div>
+                                <span>Running Stage 1: Collecting individual responses...</span>
+                              </div>
+                            )}
+                            {msg.stage1 && <Stage1 responses={msg.stage1} showTitle={false} />}
+                          </>
+                        ),
+                      })}
+
+                      {renderStagePanel({
+                        messageIndex: index,
+                        stage: 'stage2',
+                        title: 'Stage 2: Peer Rankings',
+                        defaultOpen: false,
+                        loading: Boolean(msg.loading?.stage2),
+                        hasData: stage2.length > 0,
+                        metaExtra: stage2Meta,
+                        summaryClassName: 'stage2',
+                        children: (
+                          <>
+                            {msg.loading?.stage2 && (
+                              <div className="stage-loading">
+                                <div className="spinner"></div>
+                                <span>Running Stage 2: Peer rankings...</span>
+                              </div>
+                            )}
+                            {msg.stage2 && (
+                              <Stage2
+                                rankings={msg.stage2}
+                                labelToModel={msg.metadata?.label_to_model}
+                                aggregateRankings={msg.metadata?.aggregate_rankings}
+                                showTitle={false}
+                              />
+                            )}
+                          </>
+                        ),
+                      })}
+
+                      {renderStagePanel({
+                        messageIndex: index,
+                        stage: 'stage3',
+                        title: 'Stage 3: Final Council Answer',
+                        defaultOpen: true,
+                        loading: Boolean(msg.loading?.stage3),
+                        hasData: Boolean(msg.stage3),
+                        metaExtra: stage3Meta,
+                        summaryClassName: 'stage3',
+                        children: (
+                          <>
+                            {msg.loading?.stage3 && (
+                              <div className="stage-loading">
+                                <div className="spinner"></div>
+                                <span>Running Stage 3: Final synthesis...</span>
+                              </div>
+                            )}
+                            {msg.stage3 && <Stage3 finalResponse={msg.stage3} showTitle={false} />}
+                          </>
+                        ),
+                      })}
+
+                      {renderStagePanel({
+                        messageIndex: index,
+                        stage: 'usage',
+                        title: 'Usage: Estimated Tokens',
+                        defaultOpen: false,
+                        loading: anyLoading,
+                        hasData: anyData,
+                        metaExtra: `total ${fmt(totalTokens)}`,
+                        summaryClassName: 'usage',
+                        children: (
+                          <div className="usage-panel">
+                            <div className="usage-total">
+                              <div className="usage-total-label">Estimated total</div>
+                              <div className="usage-total-value">{fmt(totalTokens)}</div>
+                            </div>
+
+                            <div className="usage-rows">
+                              <div className="usage-row">
+                                <span className="usage-key">User prompt</span>
+                                <span className="usage-val">{fmt(userTokens)}</span>
+                              </div>
+                              <div className="usage-row">
+                                <span className="usage-key">Stage 1 outputs</span>
+                                <span className="usage-val">{fmt(stage1Tokens)}</span>
+                              </div>
+                              <div className="usage-row">
+                                <span className="usage-key">Stage 2 outputs</span>
+                                <span className="usage-val">{fmt(stage2Tokens)}</span>
+                              </div>
+                              <div className="usage-row">
+                                <span className="usage-key">Stage 3 output</span>
+                                <span className="usage-val">{fmt(stage3Tokens)}</span>
+                              </div>
+                            </div>
+
+                            {stage1ByModel.length > 0 && (
+                              <div className="usage-breakdown">
+                                <div className="usage-breakdown-title">Stage 1 breakdown</div>
+                                <ul className="usage-breakdown-list">
+                                  {stage1ByModel.map((x) => (
+                                    <li key={x.model}>
+                                      <span className="usage-breakdown-model">{x.model}</span>
+                                      <span className="usage-breakdown-tokens">{fmt(x.tokens)}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+
+                            {stage2ByModel.length > 0 && (
+                              <div className="usage-breakdown">
+                                <div className="usage-breakdown-title">Stage 2 breakdown</div>
+                                <ul className="usage-breakdown-list">
+                                  {stage2ByModel.map((x) => (
+                                    <li key={x.model}>
+                                      <span className="usage-breakdown-model">{x.model}</span>
+                                      <span className="usage-breakdown-tokens">{fmt(x.tokens)}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+
+                            <div className="usage-note">
+                              Heuristic estimate — actual tokenization varies by model/tokenizer.
+                            </div>
+                          </div>
+                        ),
+                      })}
                     </div>
-                  )}
-                  {msg.stage3 && <Stage3 finalResponse={msg.stage3} />}
-                </div>
+                  );
+                })()
               )}
             </div>
           ))

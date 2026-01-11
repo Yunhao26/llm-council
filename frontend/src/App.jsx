@@ -4,11 +4,33 @@ import ChatInterface from './components/ChatInterface';
 import { api } from './api';
 import './App.css';
 
+const THEME_STORAGE_KEY = 'llm_council_theme';
+
+function getInitialTheme() {
+  try {
+    const saved = localStorage.getItem(THEME_STORAGE_KEY);
+    if (saved === 'light' || saved === 'dark') return saved;
+  } catch {
+    // ignore
+  }
+
+  try {
+    if (window.matchMedia?.('(prefers-color-scheme: dark)')?.matches) {
+      return 'dark';
+    }
+  } catch {
+    // ignore
+  }
+
+  return 'light';
+}
+
 function App() {
   const [conversations, setConversations] = useState([]);
   const [currentConversationId, setCurrentConversationId] = useState(null);
   const [currentConversation, setCurrentConversation] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [theme, setTheme] = useState(getInitialTheme);
 
   // Load conversations on mount
   useEffect(() => {
@@ -21,6 +43,16 @@ function App() {
       loadConversation(currentConversationId);
     }
   }, [currentConversationId]);
+
+  // Apply theme globally
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, theme);
+    } catch {
+      // ignore
+    }
+  }, [theme]);
 
   const loadConversations = async () => {
     try {
@@ -181,6 +213,10 @@ function App() {
     }
   };
 
+  const handleToggleTheme = () => {
+    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  };
+
   return (
     <div className="app">
       <Sidebar
@@ -188,6 +224,8 @@ function App() {
         currentConversationId={currentConversationId}
         onSelectConversation={handleSelectConversation}
         onNewConversation={handleNewConversation}
+        theme={theme}
+        onToggleTheme={handleToggleTheme}
       />
       <ChatInterface
         conversation={currentConversation}

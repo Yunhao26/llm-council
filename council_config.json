@@ -1,0 +1,9 @@
+{
+  "council": [
+    { "name": "Council-A (localhost)", "url": "http://127.0.0.1:8002" },
+    { "name": "Council-B (localhost)", "url": "http://127.0.0.1:8004" }
+  ],
+  "chairman": { "name": "Chairman (localhost)", "url": "http://127.0.0.1:8003" },
+  "title_generator": "Council-A (localhost)"
+}
+

@@ -1,26 +1,30 @@
-"""Configuration for the LLM Council."""
+"""Configuration for the (local + distributed) LLM Council.
+
+This repo has been refactored to remove cloud APIs (OpenRouter/OpenAI/etc.).
+All model inference is done locally (recommended: Ollama), while the council is
+distributed across multiple machines via REST (worker services).
+"""
 
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# OpenRouter API key
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
-
-# Council members - list of OpenRouter model identifiers
-COUNCIL_MODELS = [
-    "openai/gpt-5.1",
-    "google/gemini-3-pro-preview",
-    "anthropic/claude-sonnet-4.5",
-    "x-ai/grok-4",
-]
-
-# Chairman model - synthesizes final response
-CHAIRMAN_MODEL = "google/gemini-3-pro-preview"
-
-# OpenRouter API endpoint
-OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
-
 # Data directory for conversation storage
-DATA_DIR = "data/conversations"
+DATA_DIR = os.getenv("DATA_DIR", "data/conversations")
+
+# Orchestrator loads council topology from a JSON file (easy to edit on Windows)
+COUNCIL_CONFIG_PATH = os.getenv("COUNCIL_CONFIG_PATH", "council_config.json")
+
+# Network timeouts (seconds)
+LLM_REQUEST_TIMEOUT_S = float(os.getenv("LLM_REQUEST_TIMEOUT_S", "180"))
+TITLE_REQUEST_TIMEOUT_S = float(os.getenv("TITLE_REQUEST_TIMEOUT_S", "30"))
+
+# CORS (useful when frontend is accessed via LAN IP instead of localhost)
+# Examples:
+# - CORS_ALLOW_ORIGINS=http://localhost:5173,http://192.168.0.10:5173
+# - CORS_ALLOW_ORIGINS=*
+CORS_ALLOW_ORIGINS = os.getenv(
+    "CORS_ALLOW_ORIGINS",
+    "http://localhost:5173,http://localhost:3000",
+)

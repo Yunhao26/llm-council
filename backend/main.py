@@ -11,14 +11,19 @@ import asyncio
 
 from . import storage
 from .council import run_full_council, generate_conversation_title, stage1_collect_responses, stage2_collect_rankings, stage3_synthesize_final, calculate_aggregate_rankings
+from .config import CORS_ALLOW_ORIGINS
+from .council_config import load_council_topology
+from .worker_client import worker_health
 
 app = FastAPI(title="LLM Council API")
 
-# Enable CORS for local development
+# Enable CORS for local/LAN development
+_origins = [o.strip() for o in CORS_ALLOW_ORIGINS.split(",") if o.strip()]
+_allow_all = "*" in _origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
-    allow_credentials=True,
+    allow_origins=["*"] if _allow_all else _origins,
+    allow_credentials=False if _allow_all else True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -54,6 +59,29 @@ class Conversation(BaseModel):
 async def root():
     """Health check endpoint."""
     return {"status": "ok", "service": "LLM Council API"}
+
+
+@app.get("/api/workers/health")
+async def workers_health():
+    """Debug endpoint: check all configured worker services."""
+    topo = load_council_topology()
+    council = [{"name": w.name, "url": w.base_url} for w in topo.council]
+    chairman = {"name": topo.chairman.name, "url": topo.chairman.base_url}
+
+    async def check(name: str, url: str):
+        h = await worker_health(worker_base_url=url)
+        return {
+            "name": name,
+            "url": url,
+            "reachable": h is not None,
+            "health": h.model_dump() if h is not None else None,
+        }
+
+    results = await asyncio.gather(
+        *(check(w["name"], w["url"]) for w in council),
+        check(chairman["name"], chairman["url"]),
+    )
+    return {"council": results[:-1], "chairman": results[-1]}
 
 
 @app.get("/api/conversations", response_model=List[ConversationMetadata])
@@ -111,7 +139,8 @@ async def send_message(conversation_id: str, request: SendMessageRequest):
         conversation_id,
         stage1_results,
         stage2_results,
-        stage3_result
+        stage3_result,
+        metadata=metadata
     )
 
     # Return the complete response with metadata
@@ -174,7 +203,8 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
                 conversation_id,
                 stage1_results,
                 stage2_results,
-                stage3_result
+                stage3_result,
+                metadata={"label_to_model": label_to_model, "aggregate_rankings": aggregate_rankings}
             )
 
             # Send completion event
