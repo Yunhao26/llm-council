@@ -20,6 +20,138 @@
   line-height: 1.5;
 }
 
+.scores-panel {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.scores-parse-warning {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-4);
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.scores-parse-warning strong {
+  color: var(--text);
+}
+
+.scores-panel-title {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.scores-panel-subtitle {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: monospace;
+}
+
+.scores-table-wrap {
+  margin-top: 10px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.scores-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 520px;
+}
+
+.scores-table th,
+.scores-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.scores-table th {
+  position: sticky;
+  top: 0;
+  background: var(--surface-3);
+  color: var(--text-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  z-index: 1;
+}
+
+.scores-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.scores-model {
+  font-family: monospace;
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 260px;
+}
+
+.scores-rank {
+  font-family: monospace;
+  font-weight: 800;
+  font-size: 12px;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.scores-num {
+  font-family: monospace;
+  font-size: 12px;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.scores-warn {
+  margin-left: 6px;
+  font-size: 10px;
+  color: var(--danger);
+}
+
+.raw-output {
+  margin-top: 12px;
+}
+
+.raw-output summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-muted);
+  user-select: none;
+}
+
+.raw-output[open] summary {
+  margin-bottom: 10px;
+}
+
+.aggregate-scores {
+  background: var(--stage2-accent-bg);
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  border: 2px solid var(--stage2-accent-border);
+}
+
+.aggregate-scores h4 {
+  margin: 0 0 12px 0;
+  color: var(--stage2-accent-text);
+  font-size: 15px;
+}
+
 .aggregate-rankings {
   background: var(--stage2-accent-bg);
   padding: 16px;

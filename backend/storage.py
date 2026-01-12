@@ -233,11 +233,18 @@ def _upgrade_assistant_message_in_place(message: Dict[str, Any]) -> bool:
 
     # Sanitize/repair stage2 parsed_ranking for UI + aggregation stability
     if valid_labels:
-        from .council import parse_ranking_from_text  # local import to avoid heavy imports for non-upgrade paths
+        from .council import parse_ranking_from_text, parse_scores_from_text  # local import to avoid heavy imports for non-upgrade paths
 
         for entry in stage2:
             if not isinstance(entry, dict):
                 continue
+
+            # In exclude-self setups, a reviewer may only see a subset of labels.
+            reviewed_labels = entry.get("reviewed_labels")
+            if isinstance(reviewed_labels, list) and reviewed_labels:
+                entry_valid_labels = [str(x) for x in reviewed_labels if str(x) in valid_labels]
+            else:
+                entry_valid_labels = valid_labels
 
             parsed = entry.get("parsed_ranking")
             if not isinstance(parsed, list) or not parsed:
@@ -246,9 +253,19 @@ def _upgrade_assistant_message_in_place(message: Dict[str, Any]) -> bool:
                 mutated = True
 
             parsed = [str(x) for x in parsed]
-            cleaned = _sanitize_parsed_ranking(parsed, valid_labels=valid_labels)
+            cleaned = _sanitize_parsed_ranking(parsed, valid_labels=entry_valid_labels)
             if entry.get("parsed_ranking") != cleaned:
                 entry["parsed_ranking"] = cleaned
+                mutated = True
+
+            # Ensure parsed_scores exists (for UI + aggregate scores)
+            parsed_scores = entry.get("parsed_scores")
+            if not isinstance(parsed_scores, dict) or not parsed_scores:
+                ranking_text = entry.get("ranking", "")
+                parsed_scores = parse_scores_from_text(str(ranking_text))
+                # Filter to labels the reviewer actually saw (if known).
+                parsed_scores = {k: v for k, v in parsed_scores.items() if k in set(entry_valid_labels)}
+                entry["parsed_scores"] = parsed_scores
                 mutated = True
 
     # aggregate_rankings: compute if missing/invalid
@@ -258,6 +275,15 @@ def _upgrade_assistant_message_in_place(message: Dict[str, Any]) -> bool:
 
         aggregate_rankings = calculate_aggregate_rankings(stage2, label_to_model)
         metadata["aggregate_rankings"] = aggregate_rankings
+        mutated = True
+
+    # aggregate_scores: compute if missing/invalid
+    aggregate_scores = metadata.get("aggregate_scores")
+    if not isinstance(aggregate_scores, list) or not aggregate_scores:
+        from .council import calculate_aggregate_scores  # local import to avoid heavy imports for non-upgrade paths
+
+        aggregate_scores = calculate_aggregate_scores(stage2, label_to_model)
+        metadata["aggregate_scores"] = aggregate_scores
         mutated = True
 
     return mutated

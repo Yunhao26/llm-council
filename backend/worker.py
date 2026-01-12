@@ -40,6 +40,37 @@ app = FastAPI(title=f"LLM Council Worker ({WORKER_ROLE})")
 _ACTIVE_REQUESTS = 0
 
 
+_ENGLISH_ONLY_SYSTEM = (
+    "LANGUAGE RULE (highest priority): You must write your entire response in English ONLY. "
+    "Do NOT output any other language (including Chinese, Russian, etc.). "
+    "If the user input is not English, translate it internally and answer in English. "
+    "If the task requires a specific format (headings/labels/numbers), keep that format exactly."
+)
+
+
+def _ensure_english_system_message(messages: list[dict]) -> list[dict]:
+    """
+    Ensure there is a (single) system instruction enforcing English output.
+
+    Strategy:
+    - If an existing system message exists, append the rule to the FIRST system message (best-effort).
+    - Otherwise, prepend a new system message.
+    """
+
+    if not isinstance(messages, list):
+        return [{"role": "system", "content": _ENGLISH_ONLY_SYSTEM}]
+
+    for msg in messages:
+        if isinstance(msg, dict) and msg.get("role") == "system":
+            existing = str(msg.get("content", "") or "")
+            if "English ONLY" in existing or "respond in English" in existing:
+                return messages
+            msg["content"] = (existing.rstrip() + "\n\n" + _ENGLISH_ONLY_SYSTEM).strip()
+            return messages
+
+    return [{"role": "system", "content": _ENGLISH_ONLY_SYSTEM}] + messages
+
+
 def _inc_active_requests() -> None:
     global _ACTIVE_REQUESTS
     _ACTIVE_REQUESTS += 1
@@ -83,10 +114,11 @@ async def chat(req: ChatRequest):
     _inc_active_requests()
     try:
         timeout_s = float(req.timeout_s or LLM_REQUEST_TIMEOUT_S)
+        messages = _ensure_english_system_message([m.model_dump() for m in req.messages])
         content, latency_ms = await ollama_chat(
             base_url=OLLAMA_BASE_URL,
             model=OLLAMA_MODEL,
-            messages=[m.model_dump() for m in req.messages],
+            messages=messages,
             options=req.options,
             timeout_s=timeout_s,
         )
@@ -121,7 +153,11 @@ async def synthesize(req: SynthesizeRequest):
             ]
         )
 
-        chairman_prompt = f"""You are the Chairman of an LLM Council. Multiple AI models have provided responses to a user's question, and then ranked each other's responses.
+        chairman_prompt = f"""You are the Chairman of an LLM Council.
+
+IMPORTANT: Your ENTIRE output MUST be in English only. Do not use any non-English language or non-English quotes.
+
+Multiple AI models have provided responses to a user's question, and then ranked each other's responses.
 
 Original Question: {req.user_query}
 
@@ -142,7 +178,7 @@ Provide a clear, well-reasoned final answer that represents the council's collec
         content, latency_ms = await ollama_chat(
             base_url=OLLAMA_BASE_URL,
             model=OLLAMA_MODEL,
-            messages=[{"role": "user", "content": chairman_prompt}],
+            messages=_ensure_english_system_message([{"role": "user", "content": chairman_prompt}]),
             timeout_s=timeout_s,
         )
 

@@ -10,7 +10,7 @@ import json
 import asyncio
 
 from . import storage
-from .council import run_full_council, generate_conversation_title, stage1_collect_responses, stage2_collect_rankings, stage3_synthesize_final, calculate_aggregate_rankings
+from .council import run_full_council, generate_conversation_title, stage1_collect_responses, stage2_collect_rankings, stage3_synthesize_final, calculate_aggregate_rankings, calculate_aggregate_scores, normalize_user_query_to_english
 from .config import CORS_ALLOW_ORIGINS
 from .council_config import load_council_topology
 from .worker_client import worker_health
@@ -124,15 +124,16 @@ async def send_message(conversation_id: str, request: SendMessageRequest):
     # Add user message
     storage.add_user_message(conversation_id, request.content)
 
-    # If this is the first message, generate a title
+    # Normalize user query for LLMs (English-only output constraint)
+    llm_query = await normalize_user_query_to_english(request.content)
+
+    # If this is the first message, generate a title (in English)
     if is_first_message:
-        title = await generate_conversation_title(request.content)
+        title = await generate_conversation_title(llm_query)
         storage.update_conversation_title(conversation_id, title)
 
     # Run the 3-stage council process
-    stage1_results, stage2_results, stage3_result, metadata = await run_full_council(
-        request.content
-    )
+    stage1_results, stage2_results, stage3_result, metadata = await run_full_council(llm_query)
 
     # Add assistant message with all stages
     storage.add_assistant_message(
@@ -144,6 +145,10 @@ async def send_message(conversation_id: str, request: SendMessageRequest):
     )
 
     # Return the complete response with metadata
+    # Include normalized query for debugging (optional)
+    if isinstance(metadata, dict) and llm_query and llm_query != request.content:
+        metadata.setdefault("normalized_query", llm_query)
+
     return {
         "stage1": stage1_results,
         "stage2": stage2_results,
@@ -171,25 +176,29 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
             # Add user message
             storage.add_user_message(conversation_id, request.content)
 
+            # Normalize user query for LLMs (English-only output constraint)
+            llm_query = await normalize_user_query_to_english(request.content)
+
             # Start title generation in parallel (don't await yet)
             title_task = None
             if is_first_message:
-                title_task = asyncio.create_task(generate_conversation_title(request.content))
+                title_task = asyncio.create_task(generate_conversation_title(llm_query))
 
             # Stage 1: Collect responses
             yield f"data: {json.dumps({'type': 'stage1_start'})}\n\n"
-            stage1_results = await stage1_collect_responses(request.content)
+            stage1_results = await stage1_collect_responses(llm_query)
             yield f"data: {json.dumps({'type': 'stage1_complete', 'data': stage1_results})}\n\n"
 
             # Stage 2: Collect rankings
             yield f"data: {json.dumps({'type': 'stage2_start'})}\n\n"
-            stage2_results, label_to_model = await stage2_collect_rankings(request.content, stage1_results)
+            stage2_results, label_to_model = await stage2_collect_rankings(llm_query, stage1_results)
             aggregate_rankings = calculate_aggregate_rankings(stage2_results, label_to_model)
-            yield f"data: {json.dumps({'type': 'stage2_complete', 'data': stage2_results, 'metadata': {'label_to_model': label_to_model, 'aggregate_rankings': aggregate_rankings}})}\n\n"
+            aggregate_scores = calculate_aggregate_scores(stage2_results, label_to_model)
+            yield f"data: {json.dumps({'type': 'stage2_complete', 'data': stage2_results, 'metadata': {'label_to_model': label_to_model, 'aggregate_rankings': aggregate_rankings, 'aggregate_scores': aggregate_scores}})}\n\n"
 
             # Stage 3: Synthesize final answer
             yield f"data: {json.dumps({'type': 'stage3_start'})}\n\n"
-            stage3_result = await stage3_synthesize_final(request.content, stage1_results, stage2_results)
+            stage3_result = await stage3_synthesize_final(llm_query, stage1_results, stage2_results)
             yield f"data: {json.dumps({'type': 'stage3_complete', 'data': stage3_result})}\n\n"
 
             # Wait for title generation if it was started
@@ -199,12 +208,15 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
                 yield f"data: {json.dumps({'type': 'title_complete', 'data': {'title': title}})}\n\n"
 
             # Save complete assistant message
+            metadata = {"label_to_model": label_to_model, "aggregate_rankings": aggregate_rankings, "aggregate_scores": aggregate_scores}
+            if llm_query and llm_query != request.content:
+                metadata["normalized_query"] = llm_query
             storage.add_assistant_message(
                 conversation_id,
                 stage1_results,
                 stage2_results,
                 stage3_result,
-                metadata={"label_to_model": label_to_model, "aggregate_rankings": aggregate_rankings}
+                metadata=metadata
             )
 
             # Send completion event

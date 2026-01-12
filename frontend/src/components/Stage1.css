@@ -104,15 +104,19 @@
 
 .stage1-compare-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  /* Ensure both columns remain available; overflow is handled by the scroll wrapper. */
+  grid-template-columns: repeat(2, minmax(420px, 1fr));
   gap: 16px;
+  min-width: 0;
+  /* Force a real layout width > viewport on narrow screens so the main messages container can scroll horizontally. */
+  min-width: 860px; /* 2*420 + 16 gap = 856 (add small buffer) */
 }
 
-@media (max-width: 900px) {
-  .stage1-compare-grid {
-    grid-template-columns: 1fr;
-  }
+.stage1-compare-grid > * {
+  min-width: 0; /* allow grid items to shrink instead of overflowing/clipping */
 }
+
+/* (horizontal scrolling is handled at the chat messages container level) */
 
 .tabs {
   display: flex;
@@ -165,6 +169,7 @@
 
 .stage1-tab-content {
   border-left: 4px solid var(--model-accent, var(--border-2));
+  min-width: 0;
 }
 
 .model-name {
@@ -177,6 +182,8 @@
 .response-text {
   color: var(--text);
   line-height: 1.6;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 /* Diff view (bonus) */
@@ -237,6 +244,8 @@
   gap: 10px;
   padding: 0 12px;
   white-space: pre;
+  min-width: 100%;
+  width: max-content; /* enable horizontal scrolling for long lines */
 }
 
 .diff-prefix {
@@ -247,8 +256,7 @@
 }
 
 .diff-content {
-  flex: 1 1 auto;
-  min-width: 0;
+  flex: 0 0 auto;
 }
 
 .diff-equal {

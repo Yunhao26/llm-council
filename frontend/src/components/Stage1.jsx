@@ -348,7 +348,7 @@ export default function Stage1({ responses, showTitle = true }) {
               )}
             </div>
           ) : (
-            <div className="stage1-compare-grid">
+            <div className="stage1-compare-grid" role="region" aria-label="Side by side comparison">
               {renderResponse(left, leftLatency)}
               {renderResponse(right, rightLatency)}
             </div>

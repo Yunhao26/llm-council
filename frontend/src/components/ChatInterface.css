@@ -4,12 +4,14 @@
   flex-direction: column;
   height: 100vh;
   background: var(--surface);
+  min-width: 0; /* allow flex child to shrink; prevents horizontal clipping */
 }
 
 .messages-container {
   flex: 1;
-  overflow-y: auto;
+  overflow: auto; /* allow both vertical + horizontal scrolling for wide content */
   padding: 24px;
+  min-width: 0;
 }
 
 .empty-state {

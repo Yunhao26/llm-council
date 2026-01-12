@@ -16,9 +16,22 @@ function getStageStatus({ loading, hasData }) {
 
 function getStageStepState({ loading, hasData, hasError }) {
   if (loading) return 'running';
-  if (hasData) return 'done';
   if (hasError) return 'error';
+  if (hasData) return 'done';
   return 'not_started';
+}
+
+function extractStage3Error(msg) {
+  const s3 = msg?.stage3;
+  if (!s3 || typeof s3 !== 'object') return null;
+  if (s3.error === true) {
+    return typeof s3.response === 'string' && s3.response.trim() ? s3.response : 'Stage 3 error';
+  }
+  // Backward-compat: older conversations may store an error as plain text.
+  if (typeof s3.response === 'string' && s3.response.trim().startsWith('Error:')) {
+    return s3.response;
+  }
+  return null;
 }
 
 export default function ChatInterface({
@@ -186,7 +199,9 @@ export default function ChatInterface({
                     const stage1 = Array.isArray(msg.stage1) ? msg.stage1 : [];
                     const stage2 = Array.isArray(msg.stage2) ? msg.stage2 : [];
                     const stage3Text = msg.stage3?.response;
-                  const errorMessage = msg.error ? String(msg.error) : null;
+                  const streamErrorMessage = msg.error ? String(msg.error) : null;
+                  const stage3ErrorMessage = extractStage3Error(msg);
+                  const errorMessage = streamErrorMessage || stage3ErrorMessage;
 
                     const stage1ByModel = stage1
                       .map((r) => ({
@@ -241,7 +256,7 @@ export default function ChatInterface({
                   const stage3State = getStageStepState({
                     loading: Boolean(msg.loading?.stage3),
                     hasData: Boolean(msg.stage3),
-                    hasError: Boolean(errorMessage) && !msg.stage3,
+                    hasError: Boolean(stage3ErrorMessage),
                   });
 
                     return (
@@ -299,6 +314,7 @@ export default function ChatInterface({
                                   rankings={msg.stage2}
                                   labelToModel={msg.metadata?.label_to_model}
                                   aggregateRankings={msg.metadata?.aggregate_rankings}
+                                aggregateScores={msg.metadata?.aggregate_scores}
                                   showTitle={false}
                                 />
                               )}
