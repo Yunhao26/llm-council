@@ -24,6 +24,9 @@ class ChatResponse(BaseModel):
     worker_name: str
     model: str
     role: Literal["council", "chairman"]
+    prompt_tokens: Optional[int] = None
+    completion_tokens: Optional[int] = None
+    total_tokens: Optional[int] = None
 
 
 class SynthesizeRequest(BaseModel):
@@ -37,6 +40,9 @@ class SynthesizeResponse(BaseModel):
     model: str
     response: str
     latency_ms: int
+    prompt_tokens: Optional[int] = None
+    completion_tokens: Optional[int] = None
+    total_tokens: Optional[int] = None
 
 
 class HealthResponse(BaseModel):

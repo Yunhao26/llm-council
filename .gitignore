@@ -5,20 +5,48 @@ build/
 dist/
 wheels/
 *.egg-info
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pytype/
+.coverage
+coverage.xml
+htmlcov/
 
 # Virtual environments
-.venv
+.venv/
+venv/
+ENV/
 
 # Keys and secrets
 .env
+.env.*
+!.env.example
 
 # Data files
 data/
 
-# Demo logs
+# Logs
 logs/
+*.log
 
-# Frontend
-frontend/node_modules/
-frontend/dist/
-frontend/.vite/
+# Frontend / Node
+**/node_modules/
+**/dist/
+**/.vite/
+**/.cache/
+.eslintcache
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# IDE / OS
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+Desktop.ini

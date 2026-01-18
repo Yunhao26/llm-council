@@ -82,8 +82,8 @@ In this repo, Stage 2 also **excludes self-evaluation** (each reviewer does NOT 
 **`components/Stage2.jsx`**
 - **Critical Feature**: Tab view showing RAW evaluation text from each model
 - De-anonymization happens CLIENT-SIDE for display (models receive anonymous labels)
-- Shows "Extracted Ranking" below each evaluation so users can validate parsing
-- Shows an "Extracted Scores" table (accuracy/insight/total) when parseable
+- Shows a merged "Scores + Ranking" table (rank + accuracy/insight/total) when parseable
+- Warns when numeric scores cannot be extracted; full raw output is always available
 - Aggregate rankings shown with average position and vote count
 - Aggregate scores shown as averaged accuracy/insight/total across reviewers
 - Explanatory text clarifies that boldface model names are for readability only

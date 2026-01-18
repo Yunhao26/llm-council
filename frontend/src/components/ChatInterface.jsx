@@ -5,7 +5,7 @@ import Stage2 from './Stage2';
 import Stage3 from './Stage3';
 import PerformancePanel from './PerformancePanel';
 import StageStepper from './StageStepper';
-import { estimateTokens, formatTokenCount } from '../utils/tokenEstimate';
+import { resolveTokenCount, formatTokenDisplay } from '../utils/tokenEstimate';
 import './ChatInterface.css';
 
 function getStageStatus({ loading, hasData }) {
@@ -190,11 +190,13 @@ export default function ChatInterface({
                   </div>
                 ) : (
                   (() => {
-                    const fmt = (n) => `~${formatTokenCount(n)} tok`;
+                    const fmt = (n, isEstimate) => formatTokenDisplay(n, isEstimate);
 
                     const prev = conversation.messages[index - 1];
                     const userText = prev && prev.role === 'user' ? prev.content : '';
-                    const userTokens = estimateTokens(userText);
+                    const userTokenInfo = resolveTokenCount(userText, null, { prefer: 'prompt' });
+                    const userTokens = userTokenInfo.count;
+                    const userTokensEstimated = userTokenInfo.isEstimate;
 
                     const stage1 = Array.isArray(msg.stage1) ? msg.stage1 : [];
                     const stage2 = Array.isArray(msg.stage2) ? msg.stage2 : [];
@@ -204,29 +206,49 @@ export default function ChatInterface({
                   const errorMessage = streamErrorMessage || stage3ErrorMessage;
 
                     const stage1ByModel = stage1
-                      .map((r) => ({
-                        model: r?.model || 'Unknown',
-                        tokens: estimateTokens(r?.response),
-                      }))
+                      .map((r) => {
+                        const info = resolveTokenCount(r?.response, r, { prefer: 'completion' });
+                        return {
+                          model: r?.model || 'Unknown',
+                          tokens: info.count,
+                          isEstimate: info.isEstimate,
+                        };
+                      })
                       .sort((a, b) => b.tokens - a.tokens);
                     const stage1Tokens = stage1ByModel.reduce((sum, x) => sum + x.tokens, 0);
+                    const stage1Estimated = stage1ByModel.some((x) => x.isEstimate);
 
                     const stage2ByModel = stage2
-                      .map((r) => ({
-                        model: r?.model || 'Unknown',
-                        tokens: estimateTokens(r?.ranking),
-                      }))
+                      .map((r) => {
+                        const info = resolveTokenCount(r?.ranking, r, { prefer: 'completion' });
+                        return {
+                          model: r?.model || 'Unknown',
+                          tokens: info.count,
+                          isEstimate: info.isEstimate,
+                        };
+                      })
                       .sort((a, b) => b.tokens - a.tokens);
                     const stage2Tokens = stage2ByModel.reduce((sum, x) => sum + x.tokens, 0);
+                    const stage2Estimated = stage2ByModel.some((x) => x.isEstimate);
 
-                    const stage3Tokens = estimateTokens(stage3Text);
+                    const stage3TokenInfo = resolveTokenCount(stage3Text, msg.stage3, {
+                      prefer: 'completion',
+                    });
+                    const stage3Tokens = stage3TokenInfo.count;
+                    const stage3Estimated = stage3TokenInfo.isEstimate;
 
                     const totalTokens = userTokens + stage1Tokens + stage2Tokens + stage3Tokens;
+                    const totalEstimated =
+                      userTokensEstimated || stage1Estimated || stage2Estimated || stage3Estimated;
 
                     const stage1Meta =
-                      stage1.length > 0 ? `${stage1.length} responses • ${fmt(stage1Tokens)}` : null;
+                      stage1.length > 0
+                        ? `${stage1.length} responses • ${fmt(stage1Tokens, stage1Estimated)}`
+                        : null;
                     const stage2Meta =
-                      stage2.length > 0 ? `${stage2.length} reviews • ${fmt(stage2Tokens)}` : null;
+                      stage2.length > 0
+                        ? `${stage2.length} reviews • ${fmt(stage2Tokens, stage2Estimated)}`
+                        : null;
 
                     const stage3MetaParts = [];
                     if (msg.stage3?.latency_ms != null) {
@@ -234,7 +256,7 @@ export default function ChatInterface({
                       if (Number.isFinite(n)) stage3MetaParts.push(`latency ${Math.round(n)} ms`);
                     }
                     if (msg.stage3?.response != null) {
-                      stage3MetaParts.push(fmt(stage3Tokens));
+                      stage3MetaParts.push(fmt(stage3Tokens, stage3Estimated));
                     }
                     const stage3Meta = stage3MetaParts.length > 0 ? stage3MetaParts.join(' • ') : null;
 
@@ -347,35 +369,45 @@ export default function ChatInterface({
                         {renderStagePanel({
                           messageIndex: index,
                           stage: 'usage',
-                          title: 'Usage: Estimated Tokens',
+                          title: 'Usage: Tokens',
                           defaultOpen: false,
                           loading: anyLoading,
                           hasData: anyData,
-                          metaExtra: `total ${fmt(totalTokens)}`,
+                          metaExtra: `total ${fmt(totalTokens, totalEstimated)}`,
                           summaryClassName: 'usage',
                           children: (
                             <div className="usage-panel">
                               <div className="usage-total">
-                                <div className="usage-total-label">Estimated total</div>
-                                <div className="usage-total-value">{fmt(totalTokens)}</div>
+                                <div className="usage-total-label">Total tokens</div>
+                                <div className="usage-total-value">
+                                  {fmt(totalTokens, totalEstimated)}
+                                </div>
                               </div>
 
                               <div className="usage-rows">
                                 <div className="usage-row">
                                   <span className="usage-key">User prompt</span>
-                                  <span className="usage-val">{fmt(userTokens)}</span>
+                                  <span className="usage-val">
+                                    {fmt(userTokens, userTokensEstimated)}
+                                  </span>
                                 </div>
                                 <div className="usage-row">
                                   <span className="usage-key">Stage 1 outputs</span>
-                                  <span className="usage-val">{fmt(stage1Tokens)}</span>
+                                  <span className="usage-val">
+                                    {fmt(stage1Tokens, stage1Estimated)}
+                                  </span>
                                 </div>
                                 <div className="usage-row">
                                   <span className="usage-key">Stage 2 outputs</span>
-                                  <span className="usage-val">{fmt(stage2Tokens)}</span>
+                                  <span className="usage-val">
+                                    {fmt(stage2Tokens, stage2Estimated)}
+                                  </span>
                                 </div>
                                 <div className="usage-row">
                                   <span className="usage-key">Stage 3 output</span>
-                                  <span className="usage-val">{fmt(stage3Tokens)}</span>
+                                  <span className="usage-val">
+                                    {fmt(stage3Tokens, stage3Estimated)}
+                                  </span>
                                 </div>
                               </div>
 
@@ -386,7 +418,9 @@ export default function ChatInterface({
                                     {stage1ByModel.map((x) => (
                                       <li key={x.model}>
                                         <span className="usage-breakdown-model">{x.model}</span>
-                                        <span className="usage-breakdown-tokens">{fmt(x.tokens)}</span>
+                                        <span className="usage-breakdown-tokens">
+                                          {fmt(x.tokens, x.isEstimate)}
+                                        </span>
                                       </li>
                                     ))}
                                   </ul>
@@ -400,7 +434,9 @@ export default function ChatInterface({
                                     {stage2ByModel.map((x) => (
                                       <li key={x.model}>
                                         <span className="usage-breakdown-model">{x.model}</span>
-                                        <span className="usage-breakdown-tokens">{fmt(x.tokens)}</span>
+                                        <span className="usage-breakdown-tokens">
+                                          {fmt(x.tokens, x.isEstimate)}
+                                        </span>
                                       </li>
                                     ))}
                                   </ul>
@@ -408,7 +444,8 @@ export default function ChatInterface({
                               )}
 
                               <div className="usage-note">
-                                Heuristic estimate — actual tokenization varies by model/tokenizer.
+                                Uses Ollama token counts when available; otherwise falls back to a
+                                heuristic estimate.
                               </div>
                             </div>
                           ),

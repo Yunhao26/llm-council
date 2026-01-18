@@ -1,5 +1,5 @@
 import ReactMarkdown from 'react-markdown';
-import { estimateTokens, formatTokenCount } from '../utils/tokenEstimate';
+import { resolveTokenCount, formatTokenDisplay } from '../utils/tokenEstimate';
 import './Stage3.css';
 
 function formatLatencyMs(ms) {
@@ -14,7 +14,10 @@ export default function Stage3({ finalResponse, showTitle = true }) {
   }
 
   const latency = formatLatencyMs(finalResponse.latency_ms);
-  const tokensText = `~${formatTokenCount(estimateTokens(finalResponse.response))} tok`;
+  const { count: tokens, isEstimate } = resolveTokenCount(finalResponse.response, finalResponse, {
+    prefer: 'completion',
+  });
+  const tokensText = formatTokenDisplay(tokens, isEstimate);
 
   return (
     <div className="stage stage3">
@@ -22,7 +25,7 @@ export default function Stage3({ finalResponse, showTitle = true }) {
       <div className="final-response">
         <div className="chairman-label">
           Chairman: {finalResponse.model.split('/')[1] || finalResponse.model}
-          {latency ? ` • Latency: ${latency}` : ''} • Est. tokens: {tokensText}
+          {latency ? ` • Latency: ${latency}` : ''} • Tokens: {tokensText}
         </div>
         <div className="final-text markdown-content">
           <ReactMarkdown>{finalResponse.response}</ReactMarkdown>

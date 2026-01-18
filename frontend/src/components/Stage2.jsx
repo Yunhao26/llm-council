@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { estimateTokens, formatTokenCount } from '../utils/tokenEstimate';
+import { resolveTokenCount, formatTokenDisplay } from '../utils/tokenEstimate';
 import './Stage2.css';
 
 function deAnonymizeText(text, labelToModel) {
@@ -134,8 +134,10 @@ export default function Stage2({
 
   const active = rankings[activeTab] || {};
   const latency = formatLatencyMs(active.latency_ms);
-  const tokens = estimateTokens(active.ranking);
-  const tokensText = `~${formatTokenCount(tokens)} tok`;
+  const { count: tokens, isEstimate } = resolveTokenCount(active.ranking, active, {
+    prefer: 'completion',
+  });
+  const tokensText = formatTokenDisplay(tokens, isEstimate);
   const excludedLabel = active.excluded_label;
   const excludedText = excludedLabel ? labelToDisplay(excludedLabel, labelToModel) : null;
 
@@ -337,7 +339,7 @@ export default function Stage2({
           <div>{active.model}</div>
           {active.ollama_model && <div>Ollama: {active.ollama_model}</div>}
           {latency && <div>Latency: {latency}</div>}
-          <div>Est. tokens: {tokensText}</div>
+          <div>Tokens: {tokensText}</div>
           {excludedText ? <div>Excluded (self): {excludedText}</div> : null}
         </div>
         <div className="ranking-content markdown-content">

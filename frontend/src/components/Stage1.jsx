@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { estimateTokens, formatTokenCount } from '../utils/tokenEstimate';
+import { resolveTokenCount, formatTokenDisplay } from '../utils/tokenEstimate';
 import { diffLines } from '../utils/textDiff';
 import './Stage1.css';
 
@@ -188,8 +188,10 @@ export default function Stage1({ responses, showTitle = true }) {
   };
 
   const renderResponse = (resp, respLatency) => {
-    const tokens = estimateTokens(resp.response);
-    const tokensText = `~${formatTokenCount(tokens)} tok`;
+    const { count: tokens, isEstimate } = resolveTokenCount(resp.response, resp, {
+      prefer: 'completion',
+    });
+    const tokensText = formatTokenDisplay(tokens, isEstimate);
     const accent = accentForModel(resp.model);
 
     return (
@@ -198,7 +200,7 @@ export default function Stage1({ responses, showTitle = true }) {
           <div>{resp.model}</div>
           {resp.ollama_model && <div>Ollama: {resp.ollama_model}</div>}
           {respLatency && <div>Latency: {respLatency}</div>}
-          <div>Est. tokens: {tokensText}</div>
+          <div>Tokens: {tokensText}</div>
         </div>
         <div className="response-text markdown-content">
           <ReactMarkdown>{resp.response}</ReactMarkdown>

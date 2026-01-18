@@ -83,7 +83,7 @@ Record the **IPv4 Address** (example: `192.168.0.11`).
 Copy and edit:
 
 - Copy `council_config.example.json` → `council_config.json`
-- Replace the IP/port values with your real LAN addresses (PC2 runs 2 council workers on two ports; PC3 runs 1 council; PC1 runs the chairman)
+- Replace the IP/port values with your real LAN addresses (PC2 runs 2 council workers on two ports; PC3 runs 2 council workers on two ports; PC1 runs the chairman)
 - **Tip**: `name` is displayed in the frontend tabs. Put the model name in it (example: `Council‑1 mistral:7b (PC2)`).
 
 The Orchestrator reads `council_config.json` by default (override with `COUNCIL_CONFIG_PATH`).
@@ -161,7 +161,7 @@ $env:VITE_API_BASE_URL="http://localhost:8001"
 npm run dev
 ```
 
-### C. PC3 (Council‑2) — start Council Worker
+### C. PC3 (Council‑3 + Council‑4) — start 2× Council Workers
 
 ```powershell
 $env:WORKER_ROLE="council"
@@ -252,7 +252,7 @@ netsh advfirewall firewall add rule name="LLM-Council ChairmanWorker 8003" dir=i
   - Use **worker services** per machine (REST) and a central **Orchestrator** that fans out calls in parallel (async).
   - Enforce **Chairman separation** with `WORKER_ROLE` (chairman exposes `/api/synthesize` only).
   - Stage 2 anonymization: label responses as **Response A/B/...**; robust ranking parsing + sanitization.
-  - UX/observability: stage-level **SSE streaming**, worker health dashboard (incl. busy/in-flight), latency + token estimates, compare + diff.
+- UX/observability: stage-level **SSE streaming**, worker health dashboard (incl. busy/in-flight), latency + token counts (Ollama when available, fallback estimate), compare + diff.
 - **Generative AI Usage Statement**:
   - Tools/models used: Cursor — GPT‑5.2 Extra High Fast Model
   - Purpose: code review, debugging, UI/UX improvements, and documentation updates (transparent assistance)

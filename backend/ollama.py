@@ -7,13 +7,23 @@ Docs: https://github.com/ollama/ollama/blob/main/docs/api.md
 from __future__ import annotations
 
 import time
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
 
 
 def _join(base_url: str, path: str) -> str:
     return base_url.rstrip("/") + path
+
+
+def _parse_token_count(value: Any) -> Optional[int]:
+    try:
+        n = int(value)
+    except Exception:
+        return None
+    if n < 0:
+        return None
+    return n
 
 
 async def ollama_chat(
@@ -23,8 +33,8 @@ async def ollama_chat(
     messages: List[Dict[str, str]],
     options: Dict[str, Any] | None = None,
     timeout_s: float = 180.0,
-) -> Tuple[str, int]:
-    """Call Ollama /api/chat (non-stream). Returns (content, latency_ms)."""
+) -> Tuple[str, int, Optional[Dict[str, Optional[int]]]]:
+    """Call Ollama /api/chat (non-stream). Returns (content, latency_ms, usage)."""
 
     t0 = time.perf_counter()
     payload: Dict[str, Any] = {
@@ -42,7 +52,22 @@ async def ollama_chat(
 
     content = (data.get("message") or {}).get("content") or ""
     latency_ms = int((time.perf_counter() - t0) * 1000)
-    return content, latency_ms
+
+    prompt_tokens = _parse_token_count(data.get("prompt_eval_count"))
+    completion_tokens = _parse_token_count(data.get("eval_count"))
+    total_tokens: Optional[int] = None
+    if prompt_tokens is not None and completion_tokens is not None:
+        total_tokens = prompt_tokens + completion_tokens
+
+    usage: Optional[Dict[str, Optional[int]]] = None
+    if prompt_tokens is not None or completion_tokens is not None or total_tokens is not None:
+        usage = {
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "total_tokens": total_tokens,
+        }
+
+    return content, latency_ms, usage
 
 
 async def ollama_health(*, base_url: str, timeout_s: float = 2.0) -> bool:

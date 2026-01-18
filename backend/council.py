@@ -162,6 +162,9 @@ async def stage1_collect_responses(user_query: str) -> List[Dict[str, Any]]:
                     "response": resp.content,
                     "latency_ms": resp.latency_ms,
                     "ollama_model": resp.model,
+                    "prompt_tokens": resp.prompt_tokens,
+                    "completion_tokens": resp.completion_tokens,
+                    "total_tokens": resp.total_tokens,
                 }
             )
 
@@ -189,6 +192,14 @@ async def stage1_collect_responses(user_query: str) -> List[Dict[str, Any]]:
                 result["latency_ms"] = int(result.get("latency_ms") or 0) + int(rewrite.latency_ms or 0)
             except Exception:
                 pass
+            if (
+                getattr(rewrite, "prompt_tokens", None) is not None
+                or getattr(rewrite, "completion_tokens", None) is not None
+                or getattr(rewrite, "total_tokens", None) is not None
+            ):
+                result["prompt_tokens"] = rewrite.prompt_tokens
+                result["completion_tokens"] = rewrite.completion_tokens
+                result["total_tokens"] = rewrite.total_tokens
             result["rewrite_applied"] = True
         return result
 
@@ -350,6 +361,9 @@ Now provide your evaluation, SCORES, and FINAL RANKING:"""
                 "parsed_scores": parsed_scores,
                 "latency_ms": resp.latency_ms,
                 "ollama_model": resp.model,
+                "prompt_tokens": resp.prompt_tokens,
+                "completion_tokens": resp.completion_tokens,
+                "total_tokens": resp.total_tokens,
                 # For downstream aggregation/UI (exclude-self + partial rankings).
                 "reviewed_labels": reviewed_labels,
                 "excluded_label": excluded_label,
@@ -416,10 +430,20 @@ async def stage3_synthesize_final(
                 "model": chairman["name"],
                 "response": rewrite.response,
                 "latency_ms": int(synth.latency_ms or 0) + int(rewrite.latency_ms or 0),
+                "prompt_tokens": rewrite.prompt_tokens,
+                "completion_tokens": rewrite.completion_tokens,
+                "total_tokens": rewrite.total_tokens,
                 "rewrite_applied": True,
             }
 
-    return {"model": chairman["name"], "response": synth.response, "latency_ms": synth.latency_ms}
+    return {
+        "model": chairman["name"],
+        "response": synth.response,
+        "latency_ms": synth.latency_ms,
+        "prompt_tokens": synth.prompt_tokens,
+        "completion_tokens": synth.completion_tokens,
+        "total_tokens": synth.total_tokens,
+    }
 
 
 def parse_ranking_from_text(ranking_text: str) -> List[str]:

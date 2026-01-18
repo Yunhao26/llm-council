@@ -44,6 +44,42 @@ export function estimateTokens(text) {
   return Math.max(0, estimate);
 }
 
+function toTokenInt(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  if (n < 0) return null;
+  return Math.round(n);
+}
+
+export function resolveTokenCount(text, tokenInfo, { prefer = 'completion' } = {}) {
+  const prompt = toTokenInt(tokenInfo?.prompt_tokens);
+  const completion = toTokenInt(tokenInfo?.completion_tokens);
+  const total = toTokenInt(tokenInfo?.total_tokens);
+
+  let actual = null;
+  if (prefer === 'prompt') {
+    actual = prompt;
+  } else if (prefer === 'total') {
+    if (total != null) {
+      actual = total;
+    } else if (prompt != null && completion != null) {
+      actual = prompt + completion;
+    } else if (completion != null) {
+      actual = completion;
+    } else if (prompt != null) {
+      actual = prompt;
+    }
+  } else if (completion != null) {
+    actual = completion;
+  }
+
+  if (actual != null) {
+    return { count: actual, isEstimate: false };
+  }
+
+  return { count: estimateTokens(text), isEstimate: true };
+}
+
 export function formatTokenCount(tokens) {
   const n = Number(tokens);
   if (!Number.isFinite(n) || n < 0) return '0';
@@ -56,3 +92,6 @@ export function formatTokenCount(tokens) {
   }
 }
 
+export function formatTokenDisplay(tokens, isEstimate) {
+  return `${isEstimate ? '~' : ''}${formatTokenCount(tokens)} tok`;
+}

@@ -1,0 +1,371 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+2 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>
+endobj
+4 0 obj
+<< /Type /Pages /Kids [6 0 R 8 0 R 10 0 R] /Count 3 >>
+endobj
+5 0 obj
+<< /Length 3927 >>
+stream
+BT
+/F2 16.0 Tf
+1 0 0 1 54.00 788.00 Tm
+(LLM Council Technical Report) Tj
+/F2 13.0 Tf
+1 0 0 1 54.00 754.00 Tm
+(Project Information) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 737.00 Tm
+(- Project: LLM Council \(local + distributed\)) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 723.00 Tm
+(- Requirement reference: LLM Council Local Deployment \(offline, multi-machine\)) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 709.00 Tm
+(- Team: Yunhao ZHOU, Yesmine BETTAIEB, Sebastien LEVESQUE) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 695.00 Tm
+(- Date: 2026-01-18) Tj
+/F2 13.0 Tf
+1 0 0 1 54.00 667.00 Tm
+(Executive Summary) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 650.00 Tm
+(This project implements a complete 3-stage LLM Council workflow that runs fully) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 636.00 Tm
+(offline) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 622.00 Tm
+(with local inference and supports distributed deployment across multiple machines) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 608.00 Tm
+(via REST.) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 594.00 Tm
+(Stage 1 gathers independent answers, Stage 2 performs peer review with accuracy and) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 580.00 Tm
+(insight) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 566.00 Tm
+(scoring \(excluding self review\), and Stage 3 synthesizes a final response from a) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 552.00 Tm
+(dedicated) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 538.00 Tm
+(Chairman service. The system includes a web UI, health monitoring, and robust) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 524.00 Tm
+(parsing and) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 510.00 Tm
+(aggregation to keep results consistent even when model outputs vary.) Tj
+/F2 13.0 Tf
+1 0 0 1 54.00 482.00 Tm
+(System Architecture) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 465.00 Tm
+(Core components:) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 451.00 Tm
+(- Orchestrator \(FastAPI, port 8001\): coordinates all stages and aggregates results) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 437.00 Tm
+(- Council workers \(FastAPI, /api/chat\): handle Stage 1 and Stage 2) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 423.00 Tm
+(- Chairman worker \(FastAPI, /api/synthesize\): handles Stage 3 only) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 409.00 Tm
+(- Frontend \(React + Vite, port 5173\): user interface and visualization) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 395.00 Tm
+(- Storage: JSON conversations in data/conversations) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 381.00 Tm
+(- Local inference: Ollama on each worker machine \(default port 11434\)) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 353.00 Tm
+(Data flow \(simplified\):) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 339.00 Tm
+(User -> Frontend -> Orchestrator) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 325.00 Tm
+(-> Council workers \(Stage 1 and Stage 2\) -> local Ollama) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 311.00 Tm
+(-> Chairman worker \(Stage 3\) -> local Ollama) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 297.00 Tm
+(-> JSON storage + UI rendering) Tj
+/F2 13.0 Tf
+1 0 0 1 54.00 269.00 Tm
+(Workflow Details) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 252.00 Tm
+(Stage 1: First opinions) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 238.00 Tm
+(- The orchestrator sends the user query to all council workers in parallel.) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 224.00 Tm
+(- Each worker returns a response along with latency and model info.) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 196.00 Tm
+(Stage 2: Review and scoring) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 182.00 Tm
+(- Responses are anonymized as Response A/B/C...) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 168.00 Tm
+(- Each council model reviews all other responses \(exclude self\).) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 154.00 Tm
+(- Output format contains three sections:) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 140.00 Tm
+(- EVALUATION: one bullet per response) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 126.00 Tm
+(- SCORES: accuracy \(0-10\) and insight \(0-10\), with total = accuracy + insight) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 112.00 Tm
+(- FINAL RANKING: based on total, tie break by accuracy then insight) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 98.00 Tm
+(- The backend parses scores and rankings, then computes aggregate scores and) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 84.00 Tm
+(aggregate rankings across reviewers.) Tj
+ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 4 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 5 0 R >>
+endobj
+7 0 obj
+<< /Length 3653 >>
+stream
+BT
+/F1 10.5 Tf
+1 0 0 1 54.00 788.00 Tm
+(Stage 3: Chairman synthesis) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 774.00 Tm
+(- The chairman receives Stage 1 responses and Stage 2 reviews.) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 760.00 Tm
+(- A separate chairman service synthesizes a final answer.) Tj
+/F2 13.0 Tf
+1 0 0 1 54.00 732.00 Tm
+(Distributed Deployment \(3 PCs\)) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 715.00 Tm
+(Recommended role split:) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 701.00 Tm
+(- PC1: Chairman worker) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 687.00 Tm
+(- PC2: Orchestrator + Frontend + Council worker A/B) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 673.00 Tm
+(- PC3: Council worker C/D) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 645.00 Tm
+(Ports:) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 631.00 Tm
+(- 8001 Orchestrator, 5173 Frontend, 8002/8004/8005/8006 Council workers, 8003) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 617.00 Tm
+(  Chairman) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 603.00 Tm
+(- 11434 Ollama \(local only\)) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 575.00 Tm
+(Configuration:) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 561.00 Tm
+(- council_config.json defines worker names and URLs) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 547.00 Tm
+(- worker.env.example and orchestrator.env.example document environment variables) Tj
+/F2 13.0 Tf
+1 0 0 1 54.00 519.00 Tm
+(Local Demo \(single PC\)) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 502.00 Tm
+(One command starts all services \(4 council workers + chairman + orchestrator + UI\):) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 488.00 Tm
+(- demo_start_local.ps1 -OllamaModel "mistral:7b") Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 474.00 Tm
+(Stop all services by port:) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 460.00 Tm
+(- demo_stop.ps1) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 446.00 Tm
+(Quick health check:) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 432.00 Tm
+(- demo_verify.ps1) Tj
+/F2 13.0 Tf
+1 0 0 1 54.00 404.00 Tm
+(Scoring and Aggregation Logic) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 387.00 Tm
+(- Scores are parsed from the SCORES section even if headers are missing.) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 373.00 Tm
+(- Aggregate Scores: average accuracy, insight, and total for each response.) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 359.00 Tm
+(- Aggregate Rankings: average rank position across reviewers.) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 345.00 Tm
+(- Tie handling: if average rank ties, display uses aggregate scores as tie breaker.) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 331.00 Tm
+(- Recommendation: use 3+ council workers for meaningful rankings with exclude-self.) Tj
+/F2 13.0 Tf
+1 0 0 1 54.00 303.00 Tm
+(Output Language and Consistency) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 286.00 Tm
+(- Workers enforce English-only output via a high priority system rule.) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 272.00 Tm
+(- If a model returns non-English text, the backend performs a best-effort rewrite.) Tj
+/F2 13.0 Tf
+1 0 0 1 54.00 244.00 Tm
+(UI and Observability) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 227.00 Tm
+(- Stage 1 compare and diff view with horizontal scroll.) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 213.00 Tm
+(- Stage 2 merged Scores + Ranking table plus full raw output for transparency.) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 199.00 Tm
+(- Worker status panel with reachability, Ollama health, and busy state.) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 185.00 Tm
+(- Token counts display real Ollama token numbers when available; fallback to) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 171.00 Tm
+(  estimates.) Tj
+/F2 13.0 Tf
+1 0 0 1 54.00 143.00 Tm
+(Persistence) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 126.00 Tm
+(- Conversations are stored as JSON files in data/conversations.) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 112.00 Tm
+(- Assistant messages store stage results plus metadata \(label mapping, aggregates\).) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 98.00 Tm
+(- Older conversations are upgraded on load for backward compatibility.) Tj
+ET
+endstream
+endobj
+8 0 obj
+<< /Type /Page /Parent 4 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 7 0 R >>
+endobj
+9 0 obj
+<< /Length 1536 >>
+stream
+BT
+/F2 13.0 Tf
+1 0 0 1 54.00 788.00 Tm
+(Compliance Summary) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 771.00 Tm
+(- No cloud APIs or external inference services.) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 757.00 Tm
+(- All inference runs locally via Ollama.) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 743.00 Tm
+(- Distributed REST architecture with configurable worker topology.) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 729.00 Tm
+(- Chairman runs as a separate service and exposes only /api/synthesize.) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 715.00 Tm
+(- Full Stage 1-2-3 workflow implemented end to end.) Tj
+/F2 13.0 Tf
+1 0 0 1 54.00 687.00 Tm
+(Testing and Verification) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 670.00 Tm
+(- Orchestrator health: GET http://localhost:8001/) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 656.00 Tm
+(- Worker health: GET http://localhost:8001/api/workers/health) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 642.00 Tm
+(- Stage 2 robustness: scripts/smoke_test_stage2.py) Tj
+/F2 13.0 Tf
+1 0 0 1 54.00 614.00 Tm
+(Known Limitations) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 597.00 Tm
+(- Requires Ollama to be running on each worker host.) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 583.00 Tm
+(- With only 2 council workers, exclude-self causes ranking ties.) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 569.00 Tm
+(- Token counts can differ across models if measured by different tokenizers.) Tj
+/F2 13.0 Tf
+1 0 0 1 54.00 541.00 Tm
+(Generative AI Usage Statement) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 524.00 Tm
+(- Tools: Cursor \(GPT-5.2 family\)) Tj
+/F1 10.5 Tf
+1 0 0 1 54.00 510.00 Tm
+(- Usage: code review, debugging, UI updates, and documentation edits) Tj
+ET
+endstream
+endobj
+10 0 obj
+<< /Type /Page /Parent 4 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 9 0 R >>
+endobj
+11 0 obj
+<< /Type /Catalog /Pages 4 0 R >>
+endobj
+xref
+0 12
+0000000000 65535 f 
+0000000009 00000 n 
+0000000079 00000 n 
+0000000154 00000 n 
+0000000222 00000 n 
+0000000292 00000 n 
+0000004271 00000 n 
+0000004417 00000 n 
+0000008122 00000 n 
+0000008268 00000 n 
+0000009856 00000 n 
+0000010003 00000 n 
+trailer
+<< /Size 12 /Root 11 0 R >>
+startxref
+10053
+%%EOF

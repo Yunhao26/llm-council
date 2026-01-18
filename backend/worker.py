@@ -115,7 +115,7 @@ async def chat(req: ChatRequest):
     try:
         timeout_s = float(req.timeout_s or LLM_REQUEST_TIMEOUT_S)
         messages = _ensure_english_system_message([m.model_dump() for m in req.messages])
-        content, latency_ms = await ollama_chat(
+        content, latency_ms, usage = await ollama_chat(
             base_url=OLLAMA_BASE_URL,
             model=OLLAMA_MODEL,
             messages=messages,
@@ -128,6 +128,9 @@ async def chat(req: ChatRequest):
             worker_name=WORKER_NAME,
             model=OLLAMA_MODEL,
             role=WORKER_ROLE,  # type: ignore[arg-type]
+            prompt_tokens=(usage or {}).get("prompt_tokens"),
+            completion_tokens=(usage or {}).get("completion_tokens"),
+            total_tokens=(usage or {}).get("total_tokens"),
         )
     finally:
         _dec_active_requests()
@@ -175,7 +178,7 @@ Your task as Chairman is to synthesize all of this information into a single, co
 Provide a clear, well-reasoned final answer that represents the council's collective wisdom:"""
 
         timeout_s = float(req.timeout_s or LLM_REQUEST_TIMEOUT_S)
-        content, latency_ms = await ollama_chat(
+        content, latency_ms, usage = await ollama_chat(
             base_url=OLLAMA_BASE_URL,
             model=OLLAMA_MODEL,
             messages=_ensure_english_system_message([{"role": "user", "content": chairman_prompt}]),
@@ -186,6 +189,9 @@ Provide a clear, well-reasoned final answer that represents the council's collec
             model=WORKER_NAME,
             response=content,
             latency_ms=latency_ms,
+            prompt_tokens=(usage or {}).get("prompt_tokens"),
+            completion_tokens=(usage or {}).get("completion_tokens"),
+            total_tokens=(usage or {}).get("total_tokens"),
         )
     finally:
         _dec_active_requests()
